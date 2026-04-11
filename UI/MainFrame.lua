@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local state = ns.UI_MainFrameState
 local colors = ns.UI_COLORS
 local layout = ns.UI_MAIN_LAYOUT
@@ -63,7 +63,7 @@ local function forgetAltErrorText(reason)
 end
 
 local function createForgetAltDialog(parent)
-	local dialog = CreateFrame("Frame", "AltRepTrackerForgetAltDialog", parent, "BackdropTemplate")
+	local dialog = CreateFrame("Frame", "RepSheetForgetAltDialog", parent, "BackdropTemplate")
 	dialog:SetSize(forgetLayout.WIDTH, forgetLayout.HEIGHT)
 	dialog:SetPoint("CENTER", parent, "CENTER", 0, 0)
 	dialog:SetFrameStrata("DIALOG")
@@ -89,7 +89,7 @@ local function createForgetAltDialog(parent)
 	dialog.info:SetText(ns.TEXT.FORGET_ALT_INFO)
 	ui.ApplyTextColor(dialog.info, colors.TEXT_INFO)
 
-	dialog.dropdown = CreateFrame("Frame", "AltRepTrackerForgetAltDropdown", dialog, "UIDropDownMenuTemplate")
+	dialog.dropdown = CreateFrame("Frame", "RepSheetForgetAltDropdown", dialog, "UIDropDownMenuTemplate")
 	dialog.dropdown:SetPoint("TOPLEFT", dialog, "TOPLEFT", forgetLayout.DROPDOWN_LEFT - 14, forgetLayout.DROPDOWN_TOP)
 	if UIDropDownMenu_SetWidth then
 		UIDropDownMenu_SetWidth(dialog.dropdown, forgetLayout.DROPDOWN_WIDTH)
@@ -198,7 +198,8 @@ function ns.CreateMainFrame()
 		return state.main
 	end
 
-	local frame = CreateFrame("Frame", "AltRepTrackerMainFrame", UIParent, "BackdropTemplate")
+	local debugEnabled = ns.IsLocalDebugEnabled and ns.IsLocalDebugEnabled()
+	local frame = CreateFrame("Frame", "RepSheetMainFrame", UIParent, "BackdropTemplate")
 	frame:SetSize(ns.UI_FRAME_WIDTH, ns.UI_FRAME_HEIGHT)
 	frame:SetFrameStrata("HIGH")
 	frame:SetBackdrop(ns.UI_BACKDROPS.FRAME)
@@ -236,25 +237,30 @@ function ns.CreateMainFrame()
 	forgetAltBtn:SetText(ns.TEXT.FORGET_ALT)
 	frame.forgetAltBtn = forgetAltBtn
 
-	local debugBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-	debugBtn:SetSize(ns.UI_DEBUG_BUTTON_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
-	debugBtn:SetPoint("RIGHT", forgetAltBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
-	debugBtn:SetText(ns.TEXT.DEBUG)
-	frame.debugBtn = debugBtn
+	local debugBtn = nil
+	local debugScanBtn = nil
+	local debugClearBtn = nil
+	if debugEnabled then
+		debugBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+		debugBtn:SetSize(ns.UI_DEBUG_BUTTON_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
+		debugBtn:SetPoint("RIGHT", forgetAltBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
+		debugBtn:SetText(ns.TEXT.DEBUG)
+		frame.debugBtn = debugBtn
 
-	local debugScanBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-	debugScanBtn:SetSize(debugLayout.SCAN_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
-	debugScanBtn:SetPoint("RIGHT", debugBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
-	debugScanBtn:SetText(ns.TEXT.SCAN_AND_LOG)
-	debugScanBtn:Hide()
-	frame.debugScanBtn = debugScanBtn
+		debugScanBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+		debugScanBtn:SetSize(debugLayout.SCAN_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
+		debugScanBtn:SetPoint("RIGHT", debugBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
+		debugScanBtn:SetText(ns.TEXT.SCAN_AND_LOG)
+		debugScanBtn:Hide()
+		frame.debugScanBtn = debugScanBtn
 
-	local debugClearBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-	debugClearBtn:SetSize(debugLayout.CLEAR_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
-	debugClearBtn:SetPoint("RIGHT", debugScanBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
-	debugClearBtn:SetText(ns.TEXT.CLEAR_LOG)
-	debugClearBtn:Hide()
-	frame.debugClearBtn = debugClearBtn
+		debugClearBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+		debugClearBtn:SetSize(debugLayout.CLEAR_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
+		debugClearBtn:SetPoint("RIGHT", debugScanBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
+		debugClearBtn:SetText(ns.TEXT.CLEAR_LOG)
+		debugClearBtn:Hide()
+		frame.debugClearBtn = debugClearBtn
+	end
 
 	local info = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	info:SetPoint("TOPLEFT", frame, "TOPLEFT", ns.UI_MAIN_INFO_LEFT, ns.UI_MAIN_INFO_TOP)
@@ -275,7 +281,7 @@ function ns.CreateMainFrame()
 	searchLabel:SetText(ns.TEXT.SEARCH)
 	ui.ApplyTextColor(searchLabel, colors.TEXT_LABEL)
 
-	local searchBox = CreateFrame("EditBox", "AltRepTrackerSearchBox", leftPane, "InputBoxTemplate")
+	local searchBox = CreateFrame("EditBox", "RepSheetSearchBox", leftPane, "InputBoxTemplate")
 	searchBox:SetSize(layout.SEARCH_BOX_WIDTH, layout.SEARCH_BOX_HEIGHT)
 	searchBox:SetPoint("TOPLEFT", searchLabel, "BOTTOMLEFT", 0, layout.SEARCH_BOX_GAP)
 	searchBox:SetAutoFocus(false)
@@ -312,7 +318,7 @@ function ns.CreateMainFrame()
 	expansionLabel:SetText(ns.TEXT.EXPANSION)
 	ui.ApplyTextColor(expansionLabel, colors.TEXT_LABEL)
 
-	local expansionDrop = CreateFrame("Frame", "AltRepTrackerExpansionDropdown", leftPane, "UIDropDownMenuTemplate")
+	local expansionDrop = CreateFrame("Frame", "RepSheetExpansionDropdown", leftPane, "UIDropDownMenuTemplate")
 	expansionDrop:SetPoint("TOPLEFT", expansionLabel, "BOTTOMLEFT", layout.DROPDOWN_LEFT_OFFSET, layout.DROPDOWN_TOP_OFFSET)
 	frame.expansionDrop = expansionDrop
 	if UIDropDownMenu_SetWidth then
@@ -325,7 +331,7 @@ function ns.CreateMainFrame()
 	sortLabel:SetText(ns.TEXT.SORT)
 	ui.ApplyTextColor(sortLabel, colors.TEXT_LABEL)
 
-	local sortDrop = CreateFrame("Frame", "AltRepTrackerSortDropdown", leftPane, "UIDropDownMenuTemplate")
+	local sortDrop = CreateFrame("Frame", "RepSheetSortDropdown", leftPane, "UIDropDownMenuTemplate")
 	sortDrop:SetPoint("TOPLEFT", sortLabel, "BOTTOMLEFT", layout.DROPDOWN_LEFT_OFFSET, layout.DROPDOWN_TOP_OFFSET)
 	frame.sortDrop = sortDrop
 	if UIDropDownMenu_SetWidth then
@@ -338,7 +344,7 @@ function ns.CreateMainFrame()
 	statusLabel:SetText(ns.TEXT.FILTER)
 	ui.ApplyTextColor(statusLabel, colors.TEXT_LABEL)
 
-	local statusDrop = CreateFrame("Frame", "AltRepTrackerStatusDropdown", leftPane, "UIDropDownMenuTemplate")
+	local statusDrop = CreateFrame("Frame", "RepSheetStatusDropdown", leftPane, "UIDropDownMenuTemplate")
 	statusDrop:SetPoint("TOPLEFT", statusLabel, "BOTTOMLEFT", layout.DROPDOWN_LEFT_OFFSET, layout.DROPDOWN_TOP_OFFSET)
 	frame.statusDrop = statusDrop
 	if UIDropDownMenu_SetWidth then
@@ -399,7 +405,7 @@ function ns.CreateMainFrame()
 	countLabel:SetJustifyH("LEFT")
 	frame.countLabel = countLabel
 
-	local listScroll = CreateFrame("ScrollFrame", "AltRepTrackerFactionScroll", leftPane, "UIPanelScrollFrameTemplate")
+	local listScroll = CreateFrame("ScrollFrame", "RepSheetFactionScroll", leftPane, "UIPanelScrollFrameTemplate")
 	listScroll:SetPoint("TOPLEFT", leftPane, "TOPLEFT", layout.LIST_SCROLL_LEFT, layout.LIST_SCROLL_TOP)
 	listScroll:SetPoint("BOTTOMRIGHT", leftPane, "BOTTOMRIGHT", layout.LIST_SCROLL_RIGHT, layout.LIST_SCROLL_BOTTOM)
 	listScroll:EnableMouseWheel(true)
@@ -422,7 +428,7 @@ function ns.CreateMainFrame()
 	end
 	frame.characterPane = characterPane
 
-	local debugPane = ns.UI_CreateDebugPane(frame)
+	local debugPane = debugEnabled and ns.UI_CreateDebugPane(frame) or nil
 	frame.debugPane = debugPane
 	local forgetAltDialog = createForgetAltDialog(frame)
 	frame.forgetAltDialog = forgetAltDialog
@@ -441,6 +447,14 @@ function ns.CreateMainFrame()
 	end
 
 	function frame:SetDebugPageShown(shown)
+		if not debugEnabled or not debugPane or not debugBtn or not debugScanBtn or not debugClearBtn then
+			leftPane:Show()
+			characterPane:Show()
+			if debugPane then
+				debugPane:Hide()
+			end
+			return
+		end
 		shown = shown == true
 		leftPane:SetShown(not shown)
 		characterPane:SetShown(not shown)
@@ -453,9 +467,11 @@ function ns.CreateMainFrame()
 		end
 	end
 
-	debugBtn:SetScript("OnClick", function()
-		frame:SetDebugPageShown(not debugPane:IsShown())
-	end)
+	if debugBtn then
+		debugBtn:SetScript("OnClick", function()
+			frame:SetDebugPageShown(not debugPane:IsShown())
+		end)
+	end
 
 	forgetAltBtn:SetScript("OnClick", function()
 		if forgetAltDialog.Open then
@@ -463,17 +479,21 @@ function ns.CreateMainFrame()
 		end
 	end)
 
-	debugScanBtn:SetScript("OnClick", function()
-		if debugPane.RunDebugScan then
-			debugPane:RunDebugScan()
-		end
-	end)
+	if debugScanBtn then
+		debugScanBtn:SetScript("OnClick", function()
+			if debugPane.RunDebugScan then
+				debugPane:RunDebugScan()
+			end
+		end)
+	end
 
-	debugClearBtn:SetScript("OnClick", function()
-		if debugPane.ClearLog then
-			debugPane:ClearLog()
-		end
-	end)
+	if debugClearBtn then
+		debugClearBtn:SetScript("OnClick", function()
+			if debugPane.ClearLog then
+				debugPane:ClearLog()
+			end
+		end)
+	end
 
 	local statusFooter = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	statusFooter:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", ns.UI_FRAME_FOOTER_SIDE_INSET, ns.UI_FRAME_FOOTER_BOTTOM_INSET)
@@ -497,9 +517,11 @@ function ns.CreateMainFrame()
 		searchBox:SetText(ns.GetFilterValue("searchText") or "")
 		state.ignoreSearchEvents = false
 		frame:UpdateForgetAltButtonState()
-		debugBtn:SetText(debugPane:IsShown() and ns.TEXT.BACK or ns.TEXT.DEBUG)
-		debugScanBtn:SetShown(debugPane:IsShown())
-		debugClearBtn:SetShown(debugPane:IsShown())
+		if debugBtn and debugPane and debugScanBtn and debugClearBtn then
+			debugBtn:SetText(debugPane:IsShown() and ns.TEXT.BACK or ns.TEXT.DEBUG)
+			debugScanBtn:SetShown(debugPane:IsShown())
+			debugClearBtn:SetShown(debugPane:IsShown())
+		end
 		ns.RefreshMainFrame()
 	end)
 	frame:SetScript("OnHide", function()

@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 local function pick(data, ...)
 	if type(data) ~= "table" then

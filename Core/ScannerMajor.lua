@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 local function pick(data, ...)
 	if type(data) ~= "table" then
@@ -61,10 +61,9 @@ local function collectMajorFactionIDs()
 	return ids
 end
 
-local function buildMajorFactionIDSet()
-	local ids = collectMajorFactionIDs()
+local function buildMajorFactionIDSet(ids)
 	local lookup = {}
-	for index = 1, #ids do
+	for index = 1, #(ids or {}) do
 		lookup[ids[index]] = true
 	end
 	return lookup
@@ -179,9 +178,12 @@ function ns.ScanMajorReputations(standardRows, scanContext)
 		return rows
 	end
 
-	local knownMajorFactionIDs = buildMajorFactionIDSet()
+	local majorFactionIDs = collectMajorFactionIDs()
+	local knownMajorFactionIDs = buildMajorFactionIDSet(majorFactionIDs)
 	local seenFactionKeys = {}
+	local scannedMajorFactionIDs = {}
 	local candidateCount = 0
+	local standaloneCount = 0
 
 	for index = 1, #(standardRows or {}) do
 		local standardRow = standardRows[index]
@@ -191,8 +193,13 @@ function ns.ScanMajorReputations(standardRows, scanContext)
 		if majorFactionID <= 0 and visibleFactionID > 0 and knownMajorFactionIDs[visibleFactionID] then
 			majorFactionID = visibleFactionID
 		end
-		if visibleFactionKey ~= "" and majorFactionID > 0 and not seenFactionKeys[visibleFactionKey] then
+		if visibleFactionKey ~= ""
+			and majorFactionID > 0
+			and not seenFactionKeys[visibleFactionKey]
+			and not scannedMajorFactionIDs[majorFactionID]
+		then
 			seenFactionKeys[visibleFactionKey] = true
+			scannedMajorFactionIDs[majorFactionID] = true
 			candidateCount = candidateCount + 1
 			local scanRow = ns.GetMajorFactionScanRowByFactionID(majorFactionID, standardRow, scanContext)
 			if scanRow then
@@ -210,11 +217,33 @@ function ns.ScanMajorReputations(standardRows, scanContext)
 		end
 	end
 
+	for index = 1, #majorFactionIDs do
+		local majorFactionID = majorFactionIDs[index]
+		if not scannedMajorFactionIDs[majorFactionID] then
+			scannedMajorFactionIDs[majorFactionID] = true
+			local scanRow = ns.GetMajorFactionScanRowByFactionID(majorFactionID, nil, scanContext)
+			if scanRow then
+				rows[#rows + 1] = scanRow
+				standaloneCount = standaloneCount + 1
+				ns.DebugLog(string.format(
+					'MAJOR standalone row name="%s" faction=%s major=%s accountWide=%s expansion=%s headers=%s',
+					scanRow.name or ns.TEXT.UNKNOWN,
+					ns.DebugValueText(scanRow.factionID),
+					ns.DebugValueText(scanRow.majorFactionID),
+					ns.DebugValueText(scanRow.isAccountWide),
+					ns.DebugValueText(scanRow.expansionKey),
+					type(scanRow.headerPath) == "table" and table.concat(scanRow.headerPath, " > ") or "-"
+				))
+			end
+		end
+	end
+
 	local state = ns.PlayerStateEnsure()
 	state.lastMajorScanCount = #rows
 	ns.DebugLog(string.format(
-		"Major scan enriched %d visible faction rows from %d standard candidates.",
-		#rows,
+		"Major scan enriched %d visible faction rows and %d standalone major factions from %d standard candidates.",
+		#rows - standaloneCount,
+		standaloneCount,
 		candidateCount
 	))
 	return rows
@@ -223,7 +252,7 @@ end
 function ns.MergeScannedReputationRows(standardRows, majorRows)
 	local mergedByFactionKey = {}
 	local orderedKeys = {}
-	local ignoredMajorRows = 0
+	local standaloneMajorRows = 0
 
 	for index = 1, #(standardRows or {}) do
 		local row = standardRows[index]
@@ -242,7 +271,9 @@ function ns.MergeScannedReputationRows(standardRows, majorRows)
 			if merged then
 				mergeMajorRowIntoStandardRow(merged, row)
 			else
-				ignoredMajorRows = ignoredMajorRows + 1
+				mergedByFactionKey[key] = copyRow(row)
+				orderedKeys[#orderedKeys + 1] = key
+				standaloneMajorRows = standaloneMajorRows + 1
 			end
 		end
 	end
@@ -253,11 +284,11 @@ function ns.MergeScannedReputationRows(standardRows, majorRows)
 	end
 
 	ns.DebugLog(string.format(
-		"Merged %d standard rows and %d major rows into %d raw rows. Ignored %d unmatched major rows.",
+		"Merged %d standard rows and %d major rows into %d raw rows. Added %d standalone major rows.",
 		#(standardRows or {}),
 		#(majorRows or {}),
 		#rows,
-		ignoredMajorRows
+		standaloneMajorRows
 	))
 	return rows
 end

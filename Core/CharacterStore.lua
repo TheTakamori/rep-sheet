@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 local function playerNameAndRealm()
 	local name, realm = nil, nil
@@ -249,7 +249,7 @@ function ns.SaveCharacterSnapshot(snapshot)
 		return
 	end
 
-	local db = AltRepTrackerDB
+	local db = RepSheetDB
 	local storedSnapshot = buildStoredSnapshot(snapshot)
 	local previous = db.characters[storedSnapshot.characterKey]
 	local previousBestCount = 0
@@ -283,11 +283,11 @@ function ns.SaveCharacterSnapshot(snapshot)
 end
 
 function ns.GetCharacters()
-	return AltRepTrackerDB.characters
+	return RepSheetDB.characters
 end
 
 function ns.GetCharacterByKey(characterKey)
-	return AltRepTrackerDB.characters and AltRepTrackerDB.characters[characterKey] or nil
+	return RepSheetDB.characters and RepSheetDB.characters[characterKey] or nil
 end
 
 function ns.GetSortedCharacters()
@@ -335,7 +335,7 @@ function ns.DeleteCharacterSnapshot(characterKey)
 		return false, "scanBusy"
 	end
 
-	local db = AltRepTrackerDB
+	local db = RepSheetDB
 	local characters = db and db.characters
 	if type(characters) ~= "table" or type(characters[characterKey]) ~= "table" then
 		return false, "notFound"

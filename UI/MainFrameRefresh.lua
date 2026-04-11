@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local state = ns.UI_MainFrameState
 local layout = ns.UI_MAIN_LAYOUT
 local rowLayout = ns.UI_FACTION_ROW_LAYOUT

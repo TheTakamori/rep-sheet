@@ -1,12 +1,14 @@
 ## Interface: 120000, 120001, 120005
-## Title: Alt Rep Tracker
-## Notes: Browse reputation progress across your alts.
-## Author: Local
-## Version: 1.0.1
-## SavedVariables: AltRepTrackerDB
+## Title: Rep Sheet
+## Notes: Browse reputation progress across your alts with /reps.
+## Author: Takamori
+## Version: 2.0.0
+## IconTexture: Interface\AddOns\RepSheet\Media\Icons\RepSheetAddonIcon
+## SavedVariables: RepSheetDB
 
 Core/Constants.lua
 Core/Namespaces.lua
+Core/LocalDev.lua
 Core/Utils.lua
 Core/ReputationUtils.lua
 Core/State.lua
@@ -30,6 +32,7 @@ Core/FactionTreeView.lua
 Core/OpenFactionUI.lua
 UI/UIConstants.lua
 UI/UIHelpers.lua
+UI/MinimapButton.lua
 UI/ListRow.lua
 UI/CharacterPane.lua
 UI/DebugPane.lua

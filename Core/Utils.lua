@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 local function trim(text)
 	if type(text) ~= "string" then
@@ -25,6 +25,10 @@ end
 
 function ns.GetPrimarySlashCommand()
 	return ns.SLASH_COMMANDS[1] or ""
+end
+
+function ns.IsLocalDebugEnabled()
+	return type(ns.LOCAL_DEV) == "table" and ns.LOCAL_DEV.ENABLE_DEBUG == true
 end
 
 function ns.GetAddonVersion()

@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 local list = {
 	{ key = ns.ALL_EXPANSIONS_KEY, name = "All expansions", gameExp = nil },

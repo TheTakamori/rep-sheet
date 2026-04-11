@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local standardHelpers = ns.ScannerStandardHelpers
 
 local function saveCurrentCharacterSnapshot(reason, scanRows)
@@ -24,10 +24,44 @@ local function buildUnresolvedFactionLabel(names)
 	return table.concat(names, ", ")
 end
 
+local function buildKnownMajorScanRow(factionID, knownMeta)
+	if not ns.GetMajorFactionScanRowByFactionID then
+		return nil
+	end
+
+	local majorFactionID = ns.SafeNumber(knownMeta and knownMeta.majorFactionID, 0)
+	if majorFactionID <= 0 then
+		return nil
+	end
+
+	local majorMeta = {
+		factionKey = tostring(factionID),
+		factionID = factionID,
+		name = ns.NormalizeText(knownMeta and knownMeta.name),
+		standingId = ns.SafeNumber(knownMeta and knownMeta.standingId, 0),
+		standingText = ns.SafeString(knownMeta and knownMeta.standingText),
+		currentValue = ns.SafeNumber(knownMeta and knownMeta.currentValue, 0),
+		maxValue = ns.SafeNumber(knownMeta and knownMeta.maxValue, 0),
+		currentStanding = ns.SafeNumber(knownMeta and knownMeta.currentStanding, 0),
+		bottomValue = ns.SafeNumber(knownMeta and knownMeta.bottomValue, 0),
+		topValue = ns.SafeNumber(knownMeta and knownMeta.topValue, 0),
+		isAccountWide = knownMeta and knownMeta.isAccountWide == true,
+		isWatched = knownMeta and knownMeta.isWatched == true,
+		atWar = knownMeta and knownMeta.atWar == true,
+		canToggleAtWar = knownMeta and knownMeta.canToggleAtWar == true,
+		isChild = knownMeta and knownMeta.isChild == true,
+		headerPath = type(knownMeta and knownMeta.headerPath) == "table" and ns.CopyArray(knownMeta.headerPath) or {},
+		expansionKey = ns.SafeString(knownMeta and knownMeta.expansionKey, ns.ALL_EXPANSIONS_KEY),
+		majorFactionID = majorFactionID,
+	}
+	return ns.GetMajorFactionScanRowByFactionID(majorFactionID, majorMeta)
+end
+
 local function buildTargetedScanRows(factionIDs, metaByFactionID)
 	local rows = {}
 	local addedByFactionKey = {}
 	local standardCount = 0
+	local majorCount = 0
 	local unresolvedNames = {}
 
 	for index = 1, #factionIDs do
@@ -36,6 +70,11 @@ local function buildTargetedScanRows(factionIDs, metaByFactionID)
 		local scanRow = ns.GetStandardScanRowByFactionID and ns.GetStandardScanRowByFactionID(factionID, knownMeta) or nil
 		if scanRow then
 			standardCount = standardCount + 1
+		else
+			scanRow = buildKnownMajorScanRow(factionID, knownMeta)
+			if scanRow then
+				majorCount = majorCount + 1
+			end
 		end
 
 		if scanRow and scanRow.factionKey and not addedByFactionKey[scanRow.factionKey] then
@@ -48,10 +87,11 @@ local function buildTargetedScanRows(factionIDs, metaByFactionID)
 	end
 
 	ns.DebugLog(string.format(
-		"Targeted refresh resolved=%d requested=%d standard=%d unresolved=%d names=%s",
+		"Targeted refresh resolved=%d requested=%d standard=%d major=%d unresolved=%d names=%s",
 		#rows,
 		#factionIDs,
 		standardCount,
+		majorCount,
 		#unresolvedNames,
 		buildUnresolvedFactionLabel(unresolvedNames)
 	))

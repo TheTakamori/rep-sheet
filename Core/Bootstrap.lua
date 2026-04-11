@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 local ADDON_NAME = ns.ADDON_NAME
 local EVENT = ns.EVENT
@@ -13,7 +13,7 @@ local REFRESH_MODE = {
 local frame = CreateFrame("Frame")
 
 local function refreshUI()
-	if AltRepTrackerMainFrame and AltRepTrackerMainFrame:IsShown() and ns.RefreshMainFrame then
+	if RepSheetMainFrame and RepSheetMainFrame:IsShown() and ns.RefreshMainFrame then
 		ns.RefreshMainFrame()
 	end
 end
@@ -220,8 +220,14 @@ frame:RegisterEvent(EVENT.QUEST_TURNED_IN)
 frame:SetScript("OnEvent", function(_, event, arg1)
 	if event == EVENT.ADDON_LOADED and arg1 == ADDON_NAME then
 		ns.InitDB()
+		if ns.EnsureMinimapButton then
+			ns.EnsureMinimapButton()
+		end
 		ns.DebugLog(string.format(ns.LOG.ADDON_LOADED, ns.GetPrimarySlashCommand()))
 	elseif event == EVENT.PLAYER_LOGIN then
+		if ns.EnsureMinimapButton then
+			ns.EnsureMinimapButton()
+		end
 		startInitialScan(REASON.PLAYER_LOGIN)
 	elseif event == EVENT.PLAYER_ENTERING_WORLD then
 		ns.RequestReputationScan(REASON.PLAYER_ENTERING_WORLD, false, REFRESH_MODE.KNOWN)
@@ -252,15 +258,15 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 	end
 end)
 
-SLASH_ALTREPTRACKER1 = ns.SLASH_COMMANDS[1]
-SLASH_ALTREPTRACKER2 = ns.SLASH_COMMANDS[2]
-SlashCmdList.ALTREPTRACKER = function(message)
+SLASH_REPSHEET1 = ns.SLASH_COMMANDS[1]
+SLASH_REPSHEET2 = ns.SLASH_COMMANDS[2]
+SlashCmdList.REPSHEET = function(message)
 	local token = ns.NormalizeSearchText((message or ""):match("^%s*(.-)%s*$"))
 	if token == ns.SLASH_SUBCOMMAND.SCAN then
 		ns.RequestReputationScan(REASON.SLASH_COMMAND, true)
 		return
 	end
-	if token == ns.SLASH_SUBCOMMAND.DEBUG then
+	if token == ns.SLASH_SUBCOMMAND.DEBUG and ns.IsLocalDebugEnabled and ns.IsLocalDebugEnabled() then
 		local ui = ns.CreateMainFrame()
 		ui:Show()
 		if ui.SetDebugPageShown then

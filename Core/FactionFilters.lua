@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local filtersApi = ns.FactionFilters
 
 local function bucketMatchesFilters(bucket, expansionKey, searchText, statusKey)

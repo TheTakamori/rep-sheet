@@ -1,12 +1,12 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 function ns.SaveMainFramePosition(frame)
 	if not frame or not frame.GetPoint then
 		return
 	end
 	local point, _, relativePoint, xOfs, yOfs = frame:GetPoint(1)
-	local pos = AltRepTrackerDB.ui.mainFrame
+	local pos = RepSheetDB.ui.mainFrame
 	pos.point = point or ns.DEFAULT_MAIN_FRAME_POSITION.point
 	pos.relativePoint = relativePoint or pos.point
 	pos.x = ns.Round(xOfs or 0)
@@ -17,7 +17,7 @@ function ns.RestoreMainFramePosition(frame)
 	if not frame then
 		return
 	end
-	local pos = AltRepTrackerDB.ui.mainFrame or {}
+	local pos = RepSheetDB.ui.mainFrame or {}
 	local fallback = ns.DEFAULT_MAIN_FRAME_POSITION
 	frame:ClearAllPoints()
 	frame:SetPoint(

@@ -1,7 +1,7 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
-AltRepTrackerDB = AltRepTrackerDB or {}
+RepSheetDB = RepSheetDB or {}
 
 local function ensureTable(tbl, key)
 	if type(tbl[key]) ~= "table" then
@@ -50,7 +50,7 @@ function ns.RuntimeEnsure()
 end
 
 function ns.GetDB()
-	return AltRepTrackerDB
+	return RepSheetDB
 end
 
 function ns.InvalidateVisibleRows()
@@ -87,7 +87,7 @@ function ns.SetCurrentPage(page)
 end
 
 function ns.InitDB()
-	local db = AltRepTrackerDB
+	local db = RepSheetDB
 	local storedVersion = ns.SafeNumber(db.version, 0)
 	if storedVersion ~= ns.DB_SCHEMA_VERSION then
 		resetStoredReputationSnapshots(db)
@@ -106,6 +106,8 @@ function ns.InitDB()
 		x = defaultFramePosition.x,
 		y = defaultFramePosition.y,
 	}
+	ui.minimapButton = type(ui.minimapButton) == "table" and ui.minimapButton or {}
+	ui.minimapButton.angle = ns.SafeNumber(ui.minimapButton.angle, ns.DEFAULT_MINIMAP_BUTTON_ANGLE)
 
 	filters.searchText = ns.SafeString(filters.searchText)
 	filters.expansionKey = ns.SafeString(filters.expansionKey, ns.ALL_EXPANSIONS_KEY)
@@ -120,7 +122,7 @@ function ns.InitDB()
 end
 
 function ns.ClearStoredReputationData()
-	local db = AltRepTrackerDB
+	local db = RepSheetDB
 	local clearedCharacters = ns.CountTable(db and db.characters)
 	local ui = ensureTable(db, "ui")
 
@@ -141,7 +143,7 @@ function ns.ClearStoredReputationData()
 end
 
 function ns.GetFilters()
-	return AltRepTrackerDB.filters
+	return RepSheetDB.filters
 end
 
 function ns.GetFilterValue(key)
@@ -164,12 +166,24 @@ function ns.SetFilterValue(key, value)
 end
 
 function ns.GetSelectedFactionKey()
-	local ui = AltRepTrackerDB.ui
+	local ui = RepSheetDB.ui
 	return ui and ui.selectedFactionKey or nil
 end
 
 function ns.SetSelectedFactionKey(factionKey)
-	AltRepTrackerDB.ui.selectedFactionKey = factionKey
+	RepSheetDB.ui.selectedFactionKey = factionKey
+end
+
+function ns.GetMinimapButtonAngle()
+	local ui = RepSheetDB.ui
+	local minimapButton = ui and ui.minimapButton
+	return ns.SafeNumber(minimapButton and minimapButton.angle, ns.DEFAULT_MINIMAP_BUTTON_ANGLE)
+end
+
+function ns.SetMinimapButtonAngle(angle)
+	local ui = ensureTable(RepSheetDB, "ui")
+	local minimapButton = ensureTable(ui, "minimapButton")
+	minimapButton.angle = ns.SafeNumber(angle, ns.DEFAULT_MINIMAP_BUTTON_ANGLE)
 end
 
 function ns.IsFactionCollapsed(factionKey)
@@ -201,7 +215,7 @@ function ns.ToggleFactionCollapsed(factionKey)
 end
 
 function ns.IsFavoriteFaction(factionKey)
-	return AltRepTrackerDB.favorites[tostring(factionKey)] == true
+	return RepSheetDB.favorites[tostring(factionKey)] == true
 end
 
 function ns.ToggleFavoriteFaction(factionKey)
@@ -209,7 +223,7 @@ function ns.ToggleFavoriteFaction(factionKey)
 	if key == "" then
 		return false
 	end
-	local favorites = AltRepTrackerDB.favorites
+	local favorites = RepSheetDB.favorites
 	if favorites[key] then
 		favorites[key] = nil
 		ns.InvalidateFilteredResults()

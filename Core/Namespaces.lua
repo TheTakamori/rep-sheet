@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 ns.FactionFilters = ns.FactionFilters or {}
 ns.FactionTree = ns.FactionTree or {}

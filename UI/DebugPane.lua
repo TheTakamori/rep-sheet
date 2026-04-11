@@ -1,9 +1,9 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local colors = ns.UI_COLORS
 local layout = ns.UI_DEBUG_PANE_LAYOUT
 local ui = ns.UIHelpers
-local CLEAR_ALL_DATA_DIALOG_KEY = "ALTREPTRACKER_CLEAR_ALL_DATA_CONFIRM"
+local CLEAR_ALL_DATA_DIALOG_KEY = "REPSHEET_CLEAR_ALL_DATA_CONFIRM"
 
 local function paneWidth()
 	return ns.UI_FRAME_WIDTH - (ns.UI_FRAME_SIDE_INSET * 2)
@@ -106,7 +106,7 @@ function ns.UI_CreateDebugPane(parent)
 	pane.wipeBtn:SetPoint("RIGHT", pane.scanBtn, "LEFT", layout.WIPE_GAP, 0)
 	pane.wipeBtn:SetText(ns.TEXT.CLEAR_ALL_DATA)
 
-	pane.scroll = CreateFrame("ScrollFrame", "AltRepTrackerDebugPaneScroll", pane, "UIPanelScrollFrameTemplate")
+	pane.scroll = CreateFrame("ScrollFrame", "RepSheetDebugPaneScroll", pane, "UIPanelScrollFrameTemplate")
 	pane.scroll:SetPoint("TOPLEFT", pane, "TOPLEFT", layout.SCROLL_LEFT, layout.SCROLL_TOP)
 	pane.scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", layout.SCROLL_RIGHT, layout.SCROLL_BOTTOM)
 	pane.scroll:EnableMouseWheel(true)

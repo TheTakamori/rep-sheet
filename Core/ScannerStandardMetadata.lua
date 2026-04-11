@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local helpers = ns.ScannerStandardHelpers
 
 function helpers.getCharacterFactionMetadata(characterKey)

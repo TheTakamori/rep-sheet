@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 function ns.FormatLastSeen(timestamp)
 	timestamp = ns.SafeNumber(timestamp, 0)

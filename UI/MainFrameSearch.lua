@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 function ns.UI_RequestSearchRefresh()
 	local state = ns.UI_MainFrameState
 	state.searchRefreshToken = ns.SafeNumber(state.searchRefreshToken, 0) + 1

@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 
 ns.UI_FRAME_HEIGHT = 720
 ns.UI_PANE_WIDTH = 510
@@ -47,7 +47,17 @@ ns.UI_TEXTURES = {
 	DIALOG_BG_DARK = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
 	DIALOG_BORDER = "Interface\\DialogFrame\\UI-DialogBox-Border",
 	STATUS_BAR = "Interface\\TargetingFrame\\UI-StatusBar",
+	MINIMAP_ICON = "Interface\\AddOns\\RepSheet\\Media\\Icons\\RepSheetMinimapIcon",
+	MINIMAP_BORDER = "Interface\\Minimap\\MiniMap-TrackingBorder",
+	MINIMAP_BACKGROUND = "Interface\\Minimap\\UI-Minimap-Background",
+	MINIMAP_HIGHLIGHT = "Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight",
 }
+
+ns.UI_MINIMAP_BUTTON_SIZE = 31
+ns.UI_MINIMAP_RADIUS_OFFSET = 5
+ns.UI_MINIMAP_OVERLAY_SIZE = 50
+ns.UI_MINIMAP_BACKGROUND_SIZE = 24
+ns.UI_MINIMAP_ICON_SIZE = 18
 
 ns.UI_BACKDROPS = {
 	FRAME = {

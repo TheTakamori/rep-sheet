@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local colors = ns.UI_COLORS
 local paneLayout = ns.UI_CHARACTER_PANE_LAYOUT
 local rowLayout = ns.UI_DETAIL_ROW_LAYOUT
@@ -144,7 +144,7 @@ function ns.UI_CreateCharacterPane(parent)
 	ui.ApplyTextColor(pane.note, colors.TEXT_STATUS)
 	pane.note:SetText(ns.TEXT.KNOWN_CHARACTER_NOTE)
 
-	pane.scroll = CreateFrame("ScrollFrame", "AltRepTrackerCharacterPaneScroll", pane, "UIPanelScrollFrameTemplate")
+	pane.scroll = CreateFrame("ScrollFrame", "RepSheetCharacterPaneScroll", pane, "UIPanelScrollFrameTemplate")
 	pane.scroll:SetPoint("TOPLEFT", pane, "TOPLEFT", paneLayout.SCROLL_LEFT, paneLayout.SCROLL_TOP)
 	pane.scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", paneLayout.SCROLL_RIGHT, paneLayout.SCROLL_BOTTOM)
 

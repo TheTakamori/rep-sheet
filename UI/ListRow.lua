@@ -1,5 +1,5 @@
-AltRepTracker = AltRepTracker or {}
-local ns = AltRepTracker
+RepSheet = RepSheet or {}
+local ns = RepSheet
 local colors = ns.UI_COLORS
 local layout = ns.UI_FACTION_ROW_LAYOUT
 local ui = ns.UIHelpers
