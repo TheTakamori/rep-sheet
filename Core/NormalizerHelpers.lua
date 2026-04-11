@@ -1,7 +1,6 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
-local helpers = ns.NormalizerHelpers or {}
-ns.NormalizerHelpers = helpers
+local helpers = ns.NormalizerHelpers
 
 local function buildFactionKey(row)
 	if row.factionID and row.factionID > 0 then

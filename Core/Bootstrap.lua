@@ -18,22 +18,6 @@ local function refreshUI()
 	end
 end
 
-local function normalizeFactionIDs(factionIDs)
-	local ids = {}
-	local added = {}
-
-	for index = 1, #(type(factionIDs) == "table" and factionIDs or {}) do
-		local factionID = ns.SafeNumber(factionIDs[index], 0)
-		if factionID > 0 and not added[factionID] then
-			added[factionID] = true
-			ids[#ids + 1] = factionID
-		end
-	end
-
-	table.sort(ids)
-	return ids
-end
-
 local function mergeFactionIDs(existingFactionIDs, incomingFactionIDs)
 	local merged = {}
 	local added = {}
@@ -174,7 +158,7 @@ end
 function ns.RequestReputationScan(reason, immediate, mode, factionIDs)
 	local state = ns.PlayerStateEnsure()
 	local refreshMode = mode or REFRESH_MODE.FULL
-	local normalizedFactionIDs = refreshMode == REFRESH_MODE.FACTIONS and normalizeFactionIDs(factionIDs) or nil
+	local normalizedFactionIDs = refreshMode == REFRESH_MODE.FACTIONS and ns.NormalizeFactionIDList(factionIDs) or nil
 
 	if state.scanInProgress then
 		local queued = mergeRefreshRequest(state, "queuedRefresh", reason, refreshMode, normalizedFactionIDs)

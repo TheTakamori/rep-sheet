@@ -6,22 +6,28 @@
 ## SavedVariables: AltRepTrackerDB
 
 Core/Constants.lua
+Core/Namespaces.lua
 Core/Utils.lua
 Core/ReputationUtils.lua
 Core/State.lua
+Core/CharacterStore.lua
 Core/DebugLog.lua
 Data/Expansions.lua
 Data/FactionExpansionMap.lua
 Data/FactionHierarchyHints.lua
 Core/ScannerStandardHelpers.lua
+Core/ScannerStandardMetadata.lua
 Core/ScannerStandard.lua
 Core/ScannerMajor.lua
 Core/ScannerSpecial.lua
 Core/NormalizerHelpers.lua
+Core/NormalizerEntryMath.lua
 Core/Normalizer.lua
+Core/ScanPipeline.lua
 Core/Index.lua
 Core/FactionFilters.lua
 Core/FactionTree.lua
+Core/FactionTreeView.lua
 Core/OpenFactionUI.lua
 UI/UIConstants.lua
 UI/UIHelpers.lua
@@ -29,6 +35,8 @@ UI/ListRow.lua
 UI/CharacterPane.lua
 UI/DebugPane.lua
 UI/MainFramePosition.lua
+UI/MainFrameState.lua
 UI/MainFrameRefresh.lua
+UI/MainFrameSearch.lua
 UI/MainFrame.lua
 Core/Bootstrap.lua

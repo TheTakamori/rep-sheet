@@ -1,11 +1,5 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
-ns.UI_MainFrameState = ns.UI_MainFrameState or {
-	main = nil,
-	rowFrames = {},
-	ignoreSearchEvents = false,
-}
-
 local state = ns.UI_MainFrameState
 local colors = ns.UI_COLORS
 local layout = ns.UI_MAIN_LAYOUT
@@ -99,7 +93,7 @@ function ns.CreateMainFrame()
 			return
 		end
 		ns.SetFilterValue("searchText", self:GetText() or "")
-		ns.RefreshMainFrame()
+		ns.UI_RequestSearchRefresh()
 	end)
 	frame.searchBox = searchBox
 

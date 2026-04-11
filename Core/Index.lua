@@ -1,94 +1,7 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
-ns.FactionTree = ns.FactionTree or {}
 local tree = ns.FactionTree
-
-local function isEntryActuallyMaxed(entry)
-	local repType = entry and entry.repType
-	local currentValue = ns.SafeNumber(entry and entry.currentValue, 0)
-	local maxValue = ns.SafeNumber(entry and entry.maxValue, 0)
-
-	if repType == ns.REP_TYPE.MAJOR then
-		local renownLevel = ns.SafeNumber(entry and entry.renownLevel, 0)
-		local renownMaxLevel = ns.SafeNumber(entry and entry.renownMaxLevel, 0)
-		if renownMaxLevel <= 0 or renownLevel < renownMaxLevel then
-			return false
-		end
-		return entry.hasParagon == true or maxValue <= 0 or currentValue >= maxValue
-	end
-
-	if repType == ns.REP_TYPE.FRIENDSHIP then
-		local currentRank = ns.SafeNumber(entry and entry.friendCurrentRank, 0)
-		local maxRank = ns.SafeNumber(entry and entry.friendMaxRank, 0)
-		return maxRank > 0 and currentRank >= maxRank and (maxValue <= 0 or currentValue >= maxValue)
-	end
-
-	if repType == ns.REP_TYPE.STANDARD or repType == ns.REP_TYPE.OTHER or repType == ns.REP_TYPE.NEIGHBORHOOD then
-		local standingId = ns.SafeNumber(entry and entry.standingId, 0)
-		return standingId >= ns.MAX_STANDARD_STANDING_ID and (maxValue <= 0 or currentValue >= maxValue)
-	end
-
-	if entry and entry.hasParagon then
-		return maxValue <= 0 or currentValue >= maxValue
-	end
-
-	return entry and entry.isMaxed == true
-end
-
-local function deriveEntryOverallFraction(entry)
-	local repType = entry and entry.repType
-	local currentValue = ns.SafeNumber(entry and entry.currentValue, 0)
-	local maxValue = ns.SafeNumber(entry and entry.maxValue, 0)
-	local tierFraction = ns.ProgressFraction(currentValue, maxValue)
-	local isMaxed = isEntryActuallyMaxed(entry)
-
-	if repType == ns.REP_TYPE.MAJOR then
-		local currentLevel = ns.SafeNumber(entry and entry.renownLevel, 0)
-		local maxLevel = ns.SafeNumber(entry and entry.renownMaxLevel, 0)
-		if maxLevel > 0 and currentLevel > 0 then
-			if isMaxed then
-				return 1
-			end
-			return ns.Clamp(((currentLevel - 1) + tierFraction) / maxLevel, 0, 1)
-		end
-		return tierFraction
-	end
-
-	if repType == ns.REP_TYPE.FRIENDSHIP then
-		local currentRank = ns.SafeNumber(entry and entry.friendCurrentRank, 0)
-		local maxRank = ns.SafeNumber(entry and entry.friendMaxRank, 0)
-		if maxRank > 0 and currentRank > 0 then
-			if isMaxed then
-				return 1
-			end
-			return ns.Clamp(((currentRank - 1) + tierFraction) / maxRank, 0, 1)
-		end
-		return tierFraction
-	end
-
-	local standingId = ns.SafeNumber(entry and entry.standingId, 0)
-	if standingId > 0 then
-		if isMaxed and standingId >= ns.MAX_STANDARD_STANDING_ID then
-			return 1
-		end
-		return ns.Clamp(((standingId - 1) + tierFraction) / ns.MAX_STANDARD_STANDING_ID, 0, 1)
-	end
-
-	return ns.SafeNumber(entry and entry.overallFraction, tierFraction)
-end
-
-local function deriveEntryRemainingFraction(entry)
-	if isEntryActuallyMaxed(entry) then
-		return 0
-	end
-
-	local currentValue = ns.SafeNumber(entry and entry.currentValue, 0)
-	local maxValue = ns.SafeNumber(entry and entry.maxValue, 0)
-	if maxValue > 0 then
-		return ns.Clamp((maxValue - currentValue) / maxValue, 0, 1)
-	end
-	return 1 - deriveEntryOverallFraction(entry)
-end
+local helpers = ns.NormalizerHelpers
 
 local function buildDetailEntry(character, rep)
 	local entry = {
@@ -123,9 +36,9 @@ local function buildDetailEntry(character, rep)
 		paragonRewardPending = rep.paragonRewardPending,
 		icon = rep.icon,
 	}
-	entry.isMaxed = isEntryActuallyMaxed(entry)
-	entry.overallFraction = deriveEntryOverallFraction(entry)
-	entry.remainingFraction = deriveEntryRemainingFraction(entry)
+	entry.isMaxed = helpers.isEntryActuallyMaxed(entry)
+	entry.overallFraction = helpers.deriveEntryOverallFraction(entry)
+	entry.remainingFraction = helpers.deriveEntryRemainingFraction(entry)
 	return entry
 end
 
@@ -179,33 +92,8 @@ local function sortDetailEntriesByProgressDesc(entries)
 	end)
 end
 
-local function summarizeEntries(entries)
-	local parts = {}
-	for index = 1, #entries do
-		local entry = entries[index]
-		parts[#parts + 1] = string.format(
-			'%s{%s | %s | last=%s}',
-			ns.FormatCharacterName(entry),
-			ns.DebugValueText(entry.rankText),
-			ns.DebugValueText(entry.progressText),
-			ns.DebugValueText(entry.lastScanAt)
-		)
-	end
-	return table.concat(parts, " ; ")
-end
-
 local function finalizeBucket(bucket, characters)
 	local bestEntry = chooseRepresentativeEntry(bucket)
-
-	if bucket.isAccountWide then
-		ns.DebugLog(string.format(
-			'INDEX warband name="%s" captured=%s chosen=%s summary=%s',
-			bucket.name or ns.TEXT.UNKNOWN,
-			ns.DebugValueText(bucket.capturedCount),
-			bestEntry and ns.FormatCharacterName(bestEntry) or "-",
-			summarizeEntries(bucket.entries)
-		))
-	end
 
 	if bucket.isAccountWide then
 		if bestEntry then
@@ -331,10 +219,5 @@ function ns.GetFactionDetailEntries(factionKey)
 	if not bucket then
 		return {}
 	end
-	local entries = {}
-	for index = 1, #bucket.entries do
-		entries[index] = bucket.entries[index]
-	end
-	sortDetailEntriesByProgressDesc(entries)
-	return entries
+	return bucket.entries
 end

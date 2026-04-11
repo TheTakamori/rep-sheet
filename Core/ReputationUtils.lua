@@ -21,6 +21,20 @@ function ns.ProgressFraction(currentValue, maxValue)
 	return ns.Clamp(currentValue / maxValue, 0, 1)
 end
 
+function ns.NormalizeFactionIDList(factionIDs)
+	local ids = {}
+	local added = {}
+	for index = 1, #(type(factionIDs) == "table" and factionIDs or {}) do
+		local factionID = ns.SafeNumber(factionIDs[index], 0)
+		if factionID > 0 and not added[factionID] then
+			added[factionID] = true
+			ids[#ids + 1] = factionID
+		end
+	end
+	table.sort(ids)
+	return ids
+end
+
 function ns.FormatPercent(fraction)
 	fraction = ns.SafeNumber(fraction, 0)
 	return string.format("%d%%", ns.Round(ns.Clamp(fraction, 0, 1) * 100))

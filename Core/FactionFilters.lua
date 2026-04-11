@@ -1,20 +1,16 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
-local filtersApi = ns.FactionFilters or {}
-ns.FactionFilters = filtersApi
+local filtersApi = ns.FactionFilters
 
-local function bucketMatchesFilters(bucket, filters)
-	local expansionKey = filters.expansionKey or ns.ALL_EXPANSIONS_KEY
+local function bucketMatchesFilters(bucket, expansionKey, searchText, statusKey)
 	if expansionKey ~= ns.ALL_EXPANSIONS_KEY and bucket.expansionKey ~= expansionKey then
 		return false
 	end
 
-	local searchText = ns.NormalizeSearchText(filters.searchText)
 	if searchText ~= "" and string.find(bucket.searchText or "", searchText, 1, true) == nil then
 		return false
 	end
 
-	local statusKey = filters.statusKey or ns.FILTER_STATUS.ALL
 	if statusKey == ns.FILTER_STATUS.FAVORITES then
 		return ns.IsFavoriteFaction(bucket.factionKey)
 	end
@@ -79,31 +75,36 @@ function ns.GetFilteredFactionResults()
 	local index = ns.BuildFactionIndex()
 	local filters = ns.GetFilters()
 	local runtime = ns.RuntimeEnsure()
+	local expansionKey = filters.expansionKey or ns.ALL_EXPANSIONS_KEY
+	local searchText = ns.NormalizeSearchText(filters.searchText)
+	local sortKey = filters.sortKey or ns.SORT_KEY.BEST_PROGRESS
+	local statusKey = filters.statusKey or ns.FILTER_STATUS.ALL
 	local signature = table.concat({
-		filters.expansionKey or ns.ALL_EXPANSIONS_KEY,
-		ns.NormalizeSearchText(filters.searchText),
-		filters.sortKey or ns.SORT_KEY.BEST_PROGRESS,
-		filters.statusKey or ns.FILTER_STATUS.ALL,
+		expansionKey,
+		searchText,
+		sortKey,
+		statusKey,
 		tostring(index.totalCharacters),
 	}, "\31")
 
 	if runtime.filteredSignature == signature and runtime.filteredResults then
-		return runtime.filteredResults
+		return runtime.filteredResults, runtime.filteredTotalCharacters or 0
 	end
 
 	local filtered = {}
 	for bucketIndex = 1, #index.all do
 		local bucket = index.all[bucketIndex]
-		if bucketMatchesFilters(bucket, filters) then
+		if bucketMatchesFilters(bucket, expansionKey, searchText, statusKey) then
 			filtered[#filtered + 1] = bucket
 		end
 	end
 
 	table.sort(filtered, function(a, b)
-		return compareBuckets(filters.sortKey, index.byKey, a, b)
+		return compareBuckets(sortKey, index.byKey, a, b)
 	end)
 
 	runtime.filteredSignature = signature
 	runtime.filteredResults = filtered
-	return filtered
+	runtime.filteredTotalCharacters = index.totalCharacters
+	return filtered, index.totalCharacters
 end

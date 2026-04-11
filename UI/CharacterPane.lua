@@ -9,15 +9,6 @@ local function scrollChildWidth()
 	return ns.UI_PANE_WIDTH - paneLayout.SCROLL_LEFT + paneLayout.SCROLL_RIGHT
 end
 
-local function characterLabel(entry)
-	local name = ns.SafeString(entry.characterName, ns.TEXT.UNKNOWN)
-	local realm = ns.SafeString(entry.realm)
-	if realm ~= "" then
-		return string.format("%s-%s", name, realm)
-	end
-	return name
-end
-
 local function createDetailRow(parent, index)
 	local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 	row:SetSize(parent:GetWidth() - ns.UI_DETAIL_ROW_WIDTH_TRIM, ns.UI_DETAIL_ROW_HEIGHT)
@@ -81,7 +72,7 @@ local function applyDetailRow(row, entry)
 		ui.ApplyTextColor(row.name, colors.TEXT_TITLE)
 	else
 		local r, g, b = ns.GetClassColor({ classFile = entry.classFile })
-		row.name:SetText(characterLabel(entry))
+		row.name:SetText(ns.FormatCharacterName(entry))
 		row.name:SetTextColor(r, g, b)
 	end
 

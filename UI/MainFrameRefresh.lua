@@ -1,11 +1,5 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
-ns.UI_MainFrameState = ns.UI_MainFrameState or {
-	main = nil,
-	rowFrames = {},
-	ignoreSearchEvents = false,
-}
-
 local state = ns.UI_MainFrameState
 local layout = ns.UI_MAIN_LAYOUT
 local rowLayout = ns.UI_FACTION_ROW_LAYOUT
@@ -134,7 +128,7 @@ function ns.RefreshMainFrame()
 
 	local runtime = ns.RuntimeEnsure()
 	local filters = ns.GetFilters()
-	local filtered = ns.GetFilteredFactionResults()
+	local filtered, totalCharacters = ns.GetFilteredFactionResults()
 	local visibleRows = ns.GetVisibleFactionRows()
 	local total = #filtered
 
@@ -171,11 +165,10 @@ function ns.RefreshMainFrame()
 		ns.UI_ApplyFactionRow(row, bucket, bucket and bucket.factionKey == selectedKey)
 	end
 
-	local index = ns.BuildFactionIndex()
 	if total <= 0 then
-		main.countLabel:SetText(string.format(ns.FORMAT.COUNT_EMPTY, index.totalCharacters or 0))
+		main.countLabel:SetText(string.format(ns.FORMAT.COUNT_EMPTY, totalCharacters or 0))
 	else
-		main.countLabel:SetText(string.format(ns.FORMAT.COUNT_RESULTS, total, index.totalCharacters or 0))
+		main.countLabel:SetText(string.format(ns.FORMAT.COUNT_RESULTS, total, totalCharacters or 0))
 	end
 
 	local selectedBucket = selectedKey and ns.GetFactionBucketByKey(selectedKey) or nil
