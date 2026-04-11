@@ -2,7 +2,7 @@
 ## Title: Alt Rep Tracker
 ## Notes: Browse reputation progress across your alts.
 ## Author: Local
-## Version: 0.1.0
+## Version: 1.0.1
 ## SavedVariables: AltRepTrackerDB
 
 Core/Constants.lua
@@ -14,7 +14,6 @@ Core/CharacterStore.lua
 Core/DebugLog.lua
 Data/Expansions.lua
 Data/FactionExpansionMap.lua
-Data/FactionHierarchyHints.lua
 Core/ScannerStandardHelpers.lua
 Core/ScannerStandardMetadata.lua
 Core/ScannerStandard.lua

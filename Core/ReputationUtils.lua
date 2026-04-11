@@ -46,7 +46,19 @@ function ns.FormatProgressValues(currentValue, maxValue)
 	if maxValue <= 0 then
 		return tostring(currentValue)
 	end
-	return string.format("%d / %d", currentValue, maxValue)
+	return string.format("%d/%d", currentValue, maxValue)
+end
+
+function ns.FormatStatusWithProgress(statusText, progressText)
+	statusText = ns.SafeString(statusText)
+	progressText = ns.SafeString(progressText)
+	if progressText == "" then
+		return statusText
+	end
+	if string.find(statusText, ":", 1, true) then
+		return string.format("%s  %s", statusText, progressText)
+	end
+	return string.format("%s: %s", statusText, progressText)
 end
 
 function ns.NormalizeParagonValue(currentValue, threshold, rewardPending)
@@ -74,6 +86,19 @@ function ns.IsVisuallyMaxed(fraction)
 	return ns.SafeNumber(fraction, 0) >= 0.999
 end
 
+function ns.GetBandOverlayFraction(source)
+	if type(source) ~= "table" or source.isMaxed then
+		return 0
+	end
+
+	local maxValue = ns.SafeNumber(source.maxValue, 0)
+	if maxValue <= 0 then
+		return 0
+	end
+
+	return ns.ProgressFraction(source.currentValue, maxValue)
+end
+
 function ns.GetParagonOverlayFraction(source)
 	if type(source) ~= "table" then
 		return 0
@@ -94,9 +119,13 @@ function ns.StandingLabel(standingId)
 	return ns.STANDING_LABELS[standingId] or ns.TEXT.UNKNOWN
 end
 
-function ns.RepTypeLabel(repType, hasParagon)
+function ns.HasValidMajorRenown(source)
+	return type(source) == "table" and ns.SafeNumber(source.renownMaxLevel, 0) > 0
+end
+
+function ns.RepTypeLabel(repType, hasParagon, source)
 	local label = ns.TEXT.REPUTATION
-	if repType == ns.REP_TYPE.MAJOR then
+	if repType == ns.REP_TYPE.MAJOR and ns.HasValidMajorRenown(source) then
 		label = ns.TEXT.RENOWN
 	elseif repType == ns.REP_TYPE.FRIENDSHIP then
 		label = ns.TEXT.FRIENDSHIP
@@ -126,7 +155,10 @@ function ns.FormatCharacterName(character)
 	if type(character) ~= "table" then
 		return ns.TEXT.UNKNOWN
 	end
-	local name = ns.SafeString(character.name ~= nil and character.name or character.characterName, ns.TEXT.UNKNOWN)
+	local name = ns.SafeString(character.characterName)
+	if name == "" then
+		name = ns.SafeString(character.name, ns.TEXT.UNKNOWN)
+	end
 	local realm = ns.SafeString(character.realm)
 	if realm ~= "" then
 		return string.format("%s-%s", name, realm)

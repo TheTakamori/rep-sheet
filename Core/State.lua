@@ -10,6 +10,22 @@ local function ensureTable(tbl, key)
 	return tbl[key]
 end
 
+local function resetStoredReputationSnapshots(db)
+	db.characters = {}
+	db.lastScanAt = 0
+	db.lastScanCharacter = ""
+end
+
+local function sanitizeStatusKey(statusKey)
+	statusKey = ns.SafeString(statusKey, ns.FILTER_STATUS.ALL)
+	if statusKey ~= ns.FILTER_STATUS.ALL
+		and statusKey ~= ns.FILTER_STATUS.FAVORITES
+		and statusKey ~= ns.FILTER_STATUS.MAXED then
+		return ns.FILTER_STATUS.ALL
+	end
+	return statusKey
+end
+
 function ns.PlayerStateEnsure()
 	local state = ns.PlayerState or {}
 	ns.PlayerState = state
@@ -72,6 +88,10 @@ end
 
 function ns.InitDB()
 	local db = AltRepTrackerDB
+	local storedVersion = ns.SafeNumber(db.version, 0)
+	if storedVersion ~= ns.DB_SCHEMA_VERSION then
+		resetStoredReputationSnapshots(db)
+	end
 	db.version = ns.DB_SCHEMA_VERSION
 	ensureTable(db, "characters")
 	ensureTable(db, "favorites")
@@ -90,7 +110,7 @@ function ns.InitDB()
 	filters.searchText = ns.SafeString(filters.searchText)
 	filters.expansionKey = ns.SafeString(filters.expansionKey, ns.ALL_EXPANSIONS_KEY)
 	filters.sortKey = ns.SafeString(filters.sortKey, ns.SORT_KEY.BEST_PROGRESS)
-	filters.statusKey = ns.SafeString(filters.statusKey, ns.FILTER_STATUS.ALL)
+	filters.statusKey = sanitizeStatusKey(filters.statusKey)
 
 	db.lastScanAt = ns.SafeNumber(db.lastScanAt, 0)
 	db.lastScanCharacter = ns.SafeString(db.lastScanCharacter)
@@ -131,6 +151,9 @@ end
 
 function ns.SetFilterValue(key, value)
 	local filters = ns.GetFilters()
+	if key == "statusKey" then
+		value = sanitizeStatusKey(value)
+	end
 	if not filters or filters[key] == value then
 		return
 	end

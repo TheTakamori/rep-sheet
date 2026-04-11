@@ -3,6 +3,9 @@ local ns = AltRepTracker
 local colors = ns.UI_COLORS
 local layout = ns.UI_FACTION_ROW_LAYOUT
 local ui = ns.UIHelpers
+local FAVORITE_ICON_TEXTURE = "Interface\\Common\\FavoritesIcon"
+local FAVORITE_ICON_COORDS = { 0.125, 0.71875, 0.09375, 0.6875 }
+local FAVORITE_ICON_ATLAS = "PetJournal-FavoritesIcon"
 
 local function layoutHierarchy(row, depth)
 	depth = math.max(0, ns.SafeNumber(depth, 0))
@@ -52,6 +55,64 @@ local function setExpandButtonState(button, collapsed)
 	button:SetPushedTexture(texturePrefix .. "DOWN")
 	button:SetHighlightTexture(texturePrefix .. "Hilight", "ADD")
 	button:SetDisabledTexture(texturePrefix .. "Disabled")
+end
+
+local function hideFavoriteTooltip(frame)
+	if not GameTooltip or GameTooltip:GetOwner() ~= frame then
+		return
+	end
+	GameTooltip:Hide()
+end
+
+local function setFavoriteIconTexture(texture)
+	if not texture then
+		return
+	end
+
+	local usedAtlas = false
+	if texture.SetAtlas then
+		usedAtlas = texture:SetAtlas(FAVORITE_ICON_ATLAS)
+	end
+
+	if usedAtlas then
+		texture:SetTexCoord(0, 1, 0, 1)
+		return
+	end
+
+	texture:SetTexture(FAVORITE_ICON_TEXTURE)
+	texture:SetTexCoord(
+		FAVORITE_ICON_COORDS[1],
+		FAVORITE_ICON_COORDS[2],
+		FAVORITE_ICON_COORDS[3],
+		FAVORITE_ICON_COORDS[4]
+	)
+end
+
+local function applyFavoriteButtonState(button, isFavorite, isHovered)
+	if not button or not button.icon then
+		return
+	end
+
+	isFavorite = isFavorite == true
+	button.isFavorite = isFavorite
+
+	local color = isFavorite and (colors.FAVORITE_HEART_ACTIVE or colors.TEXT_ACCENT)
+		or (colors.FAVORITE_HEART_INACTIVE or colors.TEXT_MUTED)
+	local alpha = isHovered and 1 or (isFavorite and 1 or 0.92)
+	button.icon:SetVertexColor(color[1], color[2], color[3], alpha)
+	if button.icon.SetDesaturated then
+		button.icon:SetDesaturated(not isFavorite)
+	end
+end
+
+local function showFavoriteTooltip(button)
+	if not button or not GameTooltip then
+		return
+	end
+
+	GameTooltip:SetOwner(button, "ANCHOR_LEFT")
+	GameTooltip:SetText(button.isFavorite and ns.TEXT.UNFAVORITE or ns.TEXT.FAVORITE, 1, 0.82, 0)
+	GameTooltip:Show()
 end
 
 function ns.UI_CreateFactionRow(parent, index, cfg)
@@ -124,8 +185,10 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 		colors.STATUS_BAR_BG[3],
 		colors.STATUS_BAR_BG[4]
 	)
+	ui.CreateBandOverlay(progressBar)
 	ui.CreateParagonOverlay(progressBar)
-	progressBar.paragonOverlay:GetStatusBarTexture():SetHorizTile(false)
+	ui.CreateOverallOverlay(progressBar)
+	ui.AttachProgressBarTooltip(progressBar)
 	row.progressBar = progressBar
 
 	local progressText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -136,9 +199,21 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 	ui.SetSingleLine(progressText)
 	row.progressText = progressText
 
-	local favoriteBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+	local favoriteBtn = CreateFrame("Button", nil, row)
 	favoriteBtn:SetSize(layout.FAVORITE_WIDTH, layout.FAVORITE_HEIGHT)
 	favoriteBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", layout.FAVORITE_RIGHT, layout.FAVORITE_TOP)
+	favoriteBtn:RegisterForClicks("LeftButtonUp")
+	if favoriteBtn.SetHitRectInsets then
+		favoriteBtn:SetHitRectInsets(-4, -4, -4, -4)
+	end
+	favoriteBtn.highlight = favoriteBtn:CreateTexture(nil, "HIGHLIGHT")
+	favoriteBtn.highlight:SetAllPoints()
+	favoriteBtn.highlight:SetColorTexture(1, 1, 1, 0.06)
+	favoriteBtn.icon = favoriteBtn:CreateTexture(nil, "OVERLAY")
+	favoriteBtn.icon:SetSize(layout.FAVORITE_WIDTH, layout.FAVORITE_HEIGHT)
+	favoriteBtn.icon:SetPoint("CENTER", favoriteBtn, "CENTER", 0, 0)
+	setFavoriteIconTexture(favoriteBtn.icon)
+	applyFavoriteButtonState(favoriteBtn, false, false)
 	row.favoriteBtn = favoriteBtn
 
 	favoriteBtn:SetScript("OnClick", function()
@@ -146,6 +221,15 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 			cfg.onFavoriteToggle(row.factionKey)
 		end
 	end)
+	favoriteBtn:SetScript("OnEnter", function(self)
+		applyFavoriteButtonState(self, self.isFavorite, true)
+		showFavoriteTooltip(self)
+	end)
+	favoriteBtn:SetScript("OnLeave", function(self)
+		applyFavoriteButtonState(self, self.isFavorite, false)
+		hideFavoriteTooltip(self)
+	end)
+	favoriteBtn:SetScript("OnHide", hideFavoriteTooltip)
 
 	row:SetScript("OnClick", function()
 		if cfg.onClick and row.factionKey then
@@ -177,33 +261,31 @@ function ns.UI_ApplyFactionRow(row, bucket, selected)
 	row.title:SetText(bucket.name or ns.TEXT.UNKNOWN_FACTION)
 	row.meta:SetText(string.format(ns.FORMAT.DETAIL_SUBTITLE, bucket.expansionName or ns.TEXT.UNKNOWN, bucket.repTypeLabel or ns.TEXT.REPUTATION))
 
-	local trackedText
 	if bucket.isAccountWide then
-		trackedText = ns.TEXT.WARBAND
-	elseif bucket.anyMissing then
-		trackedText = string.format(ns.FORMAT.ALTS_TRACKED, bucket.capturedCount or 0, bucket.totalCharacters or 0)
-			.. "  "
-			.. ns.TEXT.MISSING
+		row.coverage:SetText(ns.TEXT.WARBAND)
 	else
-		trackedText = string.format(ns.FORMAT.ALTS_TRACKED, bucket.capturedCount or 0, bucket.totalCharacters or 0)
+		local characterCount = math.max(0, ns.SafeNumber(bucket.displayCount, 0))
+		row.coverage:SetText(string.format(
+			ns.FORMAT.CHARACTER_COUNT,
+			characterCount,
+			characterCount == 1 and "" or "s"
+		))
 	end
-	row.coverage:SetText(trackedText)
 
-	row.best:SetText(string.format(ns.FORMAT.BEST_CHARACTER, bucket.bestCharacterName or ns.TEXT.UNKNOWN))
-	row.progressBar:SetValue(ns.SafeNumber(bucket.bestOverallFraction, 0))
+	if bucket.isAccountWide then
+		row.best:SetText("")
+		row.best:Hide()
+	else
+		row.best:SetText(string.format(ns.FORMAT.BEST_CHARACTER, bucket.bestCharacterName or ns.TEXT.UNKNOWN))
+		row.best:Show()
+	end
+	ui.UpdateProgressBar(row.progressBar, bucket.bestEntry, bucket.bestOverallFraction)
 	if bucket.isAccountWide then
 		row.progressText:SetText(ns.FormatPercent(bucket.bestOverallFraction or 0))
 	else
 		row.progressText:SetText(string.format(ns.FORMAT.PROGRESS_SUMMARY, ns.FormatPercent(bucket.bestOverallFraction or 0), bucket.maxedCount or 0))
 	end
-	row.favoriteBtn:SetText(ns.IsFavoriteFaction(bucket.factionKey) and ns.TEXT.FAVORITE_SHORT or ns.TEXT.FAVORITE_SHORT_ADD)
-
-	if ns.IsVisuallyMaxed(bucket.bestOverallFraction) then
-		ui.ApplyStatusBarColor(row.progressBar, colors.STATUS_BAR_MAXED)
-	else
-		ui.ApplyStatusBarColor(row.progressBar, colors.STATUS_BAR_DEFAULT)
-	end
-	ui.UpdateParagonOverlay(row.progressBar, bucket.bestEntry)
+	applyFavoriteButtonState(row.favoriteBtn, ns.IsFavoriteFaction(bucket.factionKey), row.favoriteBtn:IsMouseOver())
 
 	setBackdrop(row, selected)
 end

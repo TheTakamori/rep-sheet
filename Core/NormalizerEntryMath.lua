@@ -13,7 +13,7 @@ function helpers.isEntryActuallyMaxed(entry)
 		if renownMaxLevel <= 0 or renownLevel < renownMaxLevel then
 			return false
 		end
-		return entry.hasParagon == true or maxValue <= 0 or currentValue >= maxValue
+		return true
 	end
 
 	if repType == ns.REP_TYPE.FRIENDSHIP then
@@ -44,11 +44,11 @@ function helpers.deriveEntryOverallFraction(entry)
 	if repType == ns.REP_TYPE.MAJOR then
 		local currentLevel = ns.SafeNumber(entry and entry.renownLevel, 0)
 		local maxLevel = ns.SafeNumber(entry and entry.renownMaxLevel, 0)
-		if maxLevel > 0 and currentLevel > 0 then
+		if maxLevel > 0 and currentLevel >= 0 then
 			if isMaxed then
 				return 1
 			end
-			return ns.Clamp(((currentLevel - 1) + tierFraction) / maxLevel, 0, 1)
+			return ns.Clamp((math.max(currentLevel - 1, 0) + tierFraction) / maxLevel, 0, 1)
 		end
 		return tierFraction
 	end

@@ -12,33 +12,34 @@ local function buildDetailEntry(character, rep)
 		className = character.className,
 		lastScanAt = character.lastScanAt,
 		factionKey = rep.factionKey,
+		factionID = rep.factionID,
 		name = rep.name,
 		expansionKey = rep.expansionKey,
-		expansionName = rep.expansionName,
 		repType = rep.repType,
-		repTypeLabel = rep.repTypeLabel,
 		standingId = rep.standingId,
-		rankText = rep.rankText,
-		progressText = rep.progressText,
 		currentValue = rep.currentValue,
 		maxValue = rep.maxValue,
-		overallFraction = rep.overallFraction,
-		remainingFraction = rep.remainingFraction,
-		isMaxed = rep.isMaxed,
+		currentStanding = rep.currentStanding,
+		bottomValue = rep.bottomValue,
+		topValue = rep.topValue,
 		isAccountWide = rep.isAccountWide,
+		isWatched = rep.isWatched,
+		atWar = rep.atWar,
+		canToggleAtWar = rep.canToggleAtWar,
+		isChild = rep.isChild,
+		headerPath = rep.headerPath,
 		hasParagon = rep.hasParagon,
 		renownLevel = rep.renownLevel,
 		renownMaxLevel = rep.renownMaxLevel,
 		friendCurrentRank = rep.friendCurrentRank,
 		friendMaxRank = rep.friendMaxRank,
+		friendTextLevel = rep.friendTextLevel,
 		paragonValue = rep.paragonValue,
 		paragonThreshold = rep.paragonThreshold,
 		paragonRewardPending = rep.paragonRewardPending,
-		icon = rep.icon,
+		majorFactionID = rep.majorFactionID,
 	}
-	entry.isMaxed = helpers.isEntryActuallyMaxed(entry)
-	entry.overallFraction = helpers.deriveEntryOverallFraction(entry)
-	entry.remainingFraction = helpers.deriveEntryRemainingFraction(entry)
+	helpers.ApplyRuntimeReputationFields(entry)
 	return entry
 end
 
@@ -124,7 +125,6 @@ local function finalizeBucket(bucket, characters)
 	bucket.bestCharacterName = bucket.bestEntry and bucket.bestEntry.characterName or ns.TEXT.UNKNOWN
 	bucket.bestOverallFraction = bucket.bestEntry and ns.SafeNumber(bucket.bestEntry.overallFraction, 0) or 0
 	bucket.closestRemaining = closestRemaining
-	bucket.anyMissing = not bucket.isAccountWide and bucket.capturedCount < #characters
 	tree.RebuildBucketSearchText(bucket)
 end
 
@@ -142,47 +142,61 @@ function ns.BuildFactionIndex()
 		local character = characters[charIndex]
 		local reputations = character.reputations or {}
 		for factionKey, rep in pairs(reputations) do
+			local entry = buildDetailEntry(character, rep)
 			local bucket = byFactionKey[factionKey]
 			if not bucket then
 				bucket = {
 					factionKey = factionKey,
-					factionID = rep.factionID,
-					majorFactionID = ns.SafeNumber(rep.majorFactionID, 0),
-					name = rep.name,
-					expansionKey = rep.expansionKey,
-					expansionName = rep.expansionName,
-					repType = rep.repType,
-					repTypeLabel = rep.repTypeLabel,
-					headerPath = ns.CopyArray(rep.headerPath),
-					headerLabel = rep.headerLabel,
-					icon = rep.icon,
-					isAccountWide = rep.isAccountWide == true,
-					hasParagon = rep.hasParagon == true,
+					factionID = entry.factionID,
+					majorFactionID = ns.SafeNumber(entry.majorFactionID, 0),
+					name = entry.name,
+					expansionKey = entry.expansionKey,
+					expansionName = entry.expansionName,
+					repType = entry.repType,
+					repTypeLabel = entry.repTypeLabel,
+					headerPath = ns.CopyArray(entry.headerPath),
+					headerLabel = entry.headerLabel,
+					icon = entry.icon,
+					isAccountWide = entry.isAccountWide == true,
+					hasParagon = entry.hasParagon == true,
 					entries = {},
 					byCharacterKey = {},
-					capturedCount = 0,
 					headerPathUpdatedAt = ns.SafeNumber(character.lastScanAt, 0),
 				}
+				if entry.isChild ~= nil then
+					bucket.isChild = entry.isChild == true
+				end
 				byFactionKey[factionKey] = bucket
 				all[#all + 1] = bucket
 			end
 
-			local entry = buildDetailEntry(character, rep)
 			bucket.entries[#bucket.entries + 1] = entry
 			bucket.byCharacterKey[character.characterKey] = entry
-			bucket.capturedCount = bucket.capturedCount + 1
-			bucket.isAccountWide = bucket.isAccountWide or rep.isAccountWide == true
-			bucket.hasParagon = bucket.hasParagon or rep.hasParagon == true
-			if rep.majorFactionID and rep.majorFactionID > 0 then
-				bucket.majorFactionID = rep.majorFactionID
+			bucket.isAccountWide = bucket.isAccountWide or entry.isAccountWide == true
+			bucket.hasParagon = bucket.hasParagon or entry.hasParagon == true
+			if entry.isChild ~= nil then
+				if bucket.isChild == nil then
+					bucket.isChild = entry.isChild == true
+				elseif entry.isChild == true then
+					bucket.isChild = true
+				end
+			end
+			if entry.majorFactionID and entry.majorFactionID > 0 then
+				bucket.majorFactionID = entry.majorFactionID
 			end
 			local pathUpdatedAt = ns.SafeNumber(character.lastScanAt, 0)
 			local currentHeaderPath = bucket.headerPath or {}
-			if type(rep.headerPath) == "table" and (
+			if type(entry.headerPath) == "table" and (
 				pathUpdatedAt > ns.SafeNumber(bucket.headerPathUpdatedAt, 0)
-				or (pathUpdatedAt == ns.SafeNumber(bucket.headerPathUpdatedAt, 0) and #rep.headerPath > #currentHeaderPath)
+				or (pathUpdatedAt == ns.SafeNumber(bucket.headerPathUpdatedAt, 0) and #entry.headerPath > #currentHeaderPath)
 			) then
-				bucket.headerPath = ns.CopyArray(rep.headerPath)
+				bucket.headerPath = ns.CopyArray(entry.headerPath)
+				bucket.headerLabel = entry.headerLabel
+				bucket.expansionKey = entry.expansionKey
+				bucket.expansionName = entry.expansionName
+				bucket.repType = entry.repType
+				bucket.repTypeLabel = entry.repTypeLabel
+				bucket.icon = entry.icon
 				bucket.headerPathUpdatedAt = pathUpdatedAt
 			end
 		end

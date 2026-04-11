@@ -1,7 +1,7 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
 
-local ADDON_NAME = "AltRepTracker"
+local ADDON_NAME = ns.ADDON_NAME
 local EVENT = ns.EVENT
 local REASON = ns.SCAN_REASON
 local REFRESH_MODE = {

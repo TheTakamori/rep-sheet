@@ -137,6 +137,10 @@ function ns.UI_CreateDebugPane(parent)
 	pane.logBox:EnableMouse(true)
 	pane.logBox:SetScript("OnEscapePressed", function(self)
 		self:ClearFocus()
+		local owner = pane and pane:GetParent()
+		if owner and owner.Hide then
+			owner:Hide()
+		end
 	end)
 	pane.logBox:SetScript("OnEditFocusGained", function(self)
 		self:HighlightText()

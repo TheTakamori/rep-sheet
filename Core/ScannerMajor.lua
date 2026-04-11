@@ -61,15 +61,13 @@ local function collectMajorFactionIDs()
 	return ids
 end
 
-local function buildStandardRowsByFactionKey(rows)
-	local byFactionKey = {}
-	for index = 1, #(rows or {}) do
-		local row = rows[index]
-		if row and row.factionKey then
-			byFactionKey[tostring(row.factionKey)] = row
-		end
+local function buildMajorFactionIDSet()
+	local ids = collectMajorFactionIDs()
+	local lookup = {}
+	for index = 1, #ids do
+		lookup[ids[index]] = true
 	end
-	return byFactionKey
+	return lookup
 end
 
 local function resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, factionID, rowName)
@@ -110,10 +108,14 @@ local function buildMajorScanRow(factionID, data, standardRow, headerAncestorsBy
 		end
 	end
 
+	local visibleFactionKey = tostring(standardRow and standardRow.factionKey or factionID)
+	local visibleFactionID = ns.SafeNumber(standardRow and standardRow.factionID, factionID)
+	local visibleName = ns.SafeString(standardRow and standardRow.name, rowName)
+
 	return {
-		factionKey = tostring(factionID),
-		factionID = factionID,
-		name = rowName,
+		factionKey = visibleFactionKey,
+		factionID = visibleFactionID,
+		name = visibleName ~= "" and visibleName or rowName,
 		description = ns.NormalizeText(pick(data, "description")),
 		standingId = standardRow and standardRow.standingId or 0,
 		standingText = standardRow and standardRow.standingText or "",
@@ -177,37 +179,51 @@ function ns.ScanMajorReputations(standardRows, scanContext)
 		return rows
 	end
 
-	local headerAncestorsByName = type(scanContext) == "table" and scanContext.headerAncestorsByName or nil
-	local standardByFactionKey = buildStandardRowsByFactionKey(standardRows)
-	local majorFactionIDs = collectMajorFactionIDs()
+	local knownMajorFactionIDs = buildMajorFactionIDSet()
+	local seenFactionKeys = {}
+	local candidateCount = 0
 
-	for index = 1, #majorFactionIDs do
-		local factionID = majorFactionIDs[index]
-		local factionKey = tostring(factionID)
-		local standardRow = standardByFactionKey[factionKey]
-		local scanRow = ns.GetMajorFactionScanRowByFactionID(factionID, standardRow, scanContext)
-		if scanRow then
-			rows[#rows + 1] = scanRow
-			ns.DebugLog(string.format(
-				'MAJOR row name="%s" faction=%s accountWide=%s expansion=%s headers=%s',
-				scanRow.name or ns.TEXT.UNKNOWN,
-				ns.DebugValueText(scanRow.factionID),
-				ns.DebugValueText(scanRow.isAccountWide),
-				ns.DebugValueText(scanRow.expansionKey),
-				type(scanRow.headerPath) == "table" and table.concat(scanRow.headerPath, " > ") or "-"
-			))
+	for index = 1, #(standardRows or {}) do
+		local standardRow = standardRows[index]
+		local visibleFactionKey = tostring(standardRow and standardRow.factionKey or "")
+		local visibleFactionID = ns.SafeNumber(standardRow and standardRow.factionID, 0)
+		local majorFactionID = ns.SafeNumber(standardRow and standardRow.majorFactionID, 0)
+		if majorFactionID <= 0 and visibleFactionID > 0 and knownMajorFactionIDs[visibleFactionID] then
+			majorFactionID = visibleFactionID
+		end
+		if visibleFactionKey ~= "" and majorFactionID > 0 and not seenFactionKeys[visibleFactionKey] then
+			seenFactionKeys[visibleFactionKey] = true
+			candidateCount = candidateCount + 1
+			local scanRow = ns.GetMajorFactionScanRowByFactionID(majorFactionID, standardRow, scanContext)
+			if scanRow then
+				rows[#rows + 1] = scanRow
+				ns.DebugLog(string.format(
+					'MAJOR row name="%s" faction=%s major=%s accountWide=%s expansion=%s headers=%s',
+					scanRow.name or ns.TEXT.UNKNOWN,
+					ns.DebugValueText(scanRow.factionID),
+					ns.DebugValueText(scanRow.majorFactionID),
+					ns.DebugValueText(scanRow.isAccountWide),
+					ns.DebugValueText(scanRow.expansionKey),
+					type(scanRow.headerPath) == "table" and table.concat(scanRow.headerPath, " > ") or "-"
+				))
+			end
 		end
 	end
 
 	local state = ns.PlayerStateEnsure()
 	state.lastMajorScanCount = #rows
-	ns.DebugLog(string.format("Major scan captured %d faction rows.", #rows))
+	ns.DebugLog(string.format(
+		"Major scan enriched %d visible faction rows from %d standard candidates.",
+		#rows,
+		candidateCount
+	))
 	return rows
 end
 
 function ns.MergeScannedReputationRows(standardRows, majorRows)
 	local mergedByFactionKey = {}
 	local orderedKeys = {}
+	local ignoredMajorRows = 0
 
 	for index = 1, #(standardRows or {}) do
 		local row = standardRows[index]
@@ -226,9 +242,7 @@ function ns.MergeScannedReputationRows(standardRows, majorRows)
 			if merged then
 				mergeMajorRowIntoStandardRow(merged, row)
 			else
-				merged = copyRow(row)
-				mergedByFactionKey[key] = merged
-				orderedKeys[#orderedKeys + 1] = key
+				ignoredMajorRows = ignoredMajorRows + 1
 			end
 		end
 	end
@@ -239,10 +253,11 @@ function ns.MergeScannedReputationRows(standardRows, majorRows)
 	end
 
 	ns.DebugLog(string.format(
-		"Merged %d standard rows and %d major rows into %d raw rows.",
+		"Merged %d standard rows and %d major rows into %d raw rows. Ignored %d unmatched major rows.",
 		#(standardRows or {}),
 		#(majorRows or {}),
-		#rows
+		#rows,
+		ignoredMajorRows
 	))
 	return rows
 end

@@ -1,7 +1,9 @@
 AltRepTracker = AltRepTracker or {}
 local ns = AltRepTracker
 
-ns.DB_SCHEMA_VERSION = 1
+ns.DB_SCHEMA_VERSION = 2
+ns.ADDON_NAME = "AltRepTracker"
+ns.ADDON_METADATA_VERSION_KEY = "Version"
 ns.ALL_EXPANSIONS_KEY = "all"
 ns.SCAN_DELAY_SECONDS = 0.8
 ns.DEBUG_LOG_MAX_LINES = 400
@@ -26,14 +28,12 @@ ns.FILTER_STATUS = {
 	ALL = "all",
 	FAVORITES = "favorites",
 	MAXED = "maxed",
-	MISSING = "missing",
 }
 
 ns.FILTER_STATUS_OPTIONS = {
-	{ key = ns.FILTER_STATUS.ALL, label = "All factions" },
-	{ key = ns.FILTER_STATUS.FAVORITES, label = "Favorites only" },
-	{ key = ns.FILTER_STATUS.MAXED, label = "Any alt maxed" },
-	{ key = ns.FILTER_STATUS.MISSING, label = "Missing on some alts" },
+	{ key = ns.FILTER_STATUS.ALL, label = "All Factions" },
+	{ key = ns.FILTER_STATUS.FAVORITES, label = "Favorites Only" },
+	{ key = ns.FILTER_STATUS.MAXED, label = "Any Alt Maxed" },
 }
 
 ns.SORT_KEY = {
@@ -44,9 +44,9 @@ ns.SORT_KEY = {
 }
 
 ns.SORT_OPTIONS = {
-	{ key = ns.SORT_KEY.BEST_PROGRESS, label = "Best alt progress" },
-	{ key = ns.SORT_KEY.CLOSEST_TO_NEXT, label = "Closest to next rank" },
-	{ key = ns.SORT_KEY.NAME, label = "Faction name" },
+	{ key = ns.SORT_KEY.BEST_PROGRESS, label = "Best Alt Progress" },
+	{ key = ns.SORT_KEY.CLOSEST_TO_NEXT, label = "Closest to Next Rank" },
+	{ key = ns.SORT_KEY.NAME, label = "Faction Name" },
 	{ key = ns.SORT_KEY.EXPANSION, label = "Expansion" },
 }
 
@@ -90,25 +90,34 @@ ns.SLASH_SUBCOMMAND = {
 ns.TEXT = {
 	UNKNOWN = "Unknown",
 	NEVER = "Never",
-	UNKNOWN_FACTION = "Unknown faction",
+	UNKNOWN_FACTION = "Unknown Faction",
 	REPUTATION = "Reputation",
 	RENOWN = "Renown",
+	RENOWN_XP = "Renown XP",
 	FRIENDSHIP = "Friendship",
 	NEIGHBORHOOD = "Neighborhood",
+	PARAGON = "Paragon",
 	PARAGON_SUFFIX = " + Paragon",
-	NO_DATA = "No data",
+	NO_DATA = "No Data",
 	FAVORITE = "Favorite",
 	UNFAVORITE = "Unfavorite",
-	FAVORITE_SHORT = "Fav",
-	FAVORITE_SHORT_ADD = "+Fav",
 	DETAILS = "Details",
 	DEBUG = "Debug",
 	BACK = "Back",
+	CANCEL = "Cancel",
 	CLEAR_LOG = "Clear Log",
 	CLEAR_ALL_DATA = "Clear All Data",
 	SCAN_AND_LOG = "Scan & Log",
+	FORGET_ALT = "Forget Alt",
+	FORGET = "Forget",
+	FORGET_ALT_TITLE = "Forget Alt",
+	FORGET_ALT_SELECT = "Select an Alt...",
+	FORGET_ALT_INFO = "Remove the selected alt's saved Alt Rep Tracker data. This does not delete the WoW character. The data will return if that character logs in and scans again.",
+	FORGET_ALT_SCAN_BUSY = "Wait for the current scan to finish before forgetting an alt.",
+	FORGET_ALT_CURRENT = "You cannot forget the character you are currently logged into.",
+	FORGET_ALT_NOT_FOUND = "That alt is no longer stored. Refresh and try again.",
+	FORGET_ALT_FAILED = "Unable to forget that alt right now.",
 	WARBAND = "Warband",
-	MISSING = "Missing",
 	SEARCH = "Search",
 	SCAN_THIS_ALT = "Scan This Alt",
 	EXPANSION = "Expansion",
@@ -117,7 +126,7 @@ ns.TEXT = {
 	MAIN_TITLE = "Alt Rep Tracker",
 	MAIN_SUBTITLE = "Which alt has the reputation you need?",
 	MAIN_INFO = "Search factions by name, narrow the list with dropdowns, and compare every known alt on the right. Warband reputations show once; progress is the same for every character on your account.",
-	NO_FACTION_SELECTED = "No faction selected",
+	NO_FACTION_SELECTED = "No Faction Selected",
 	CHOOSE_FACTION_HINT = "Choose a faction from the list on the left.",
 	DETAIL_EMPTY_HINT = "Select a faction on the left to see every known alt here.",
 	DEBUG_TITLE = "Debug Log",
@@ -125,22 +134,26 @@ ns.TEXT = {
 	DEBUG_EMPTY_HINT = "No debug lines yet. Use Scan & Log to capture a fresh trace.",
 	CLEAR_ALL_DATA_CONFIRM = "Delete all saved Alt Rep Tracker reputation data for every character?",
 	KNOWN_CHARACTER_NOTE = "Known characters only. Each alt must log in once with the addon installed.",
-	PARAGON_REWARD_READY = "Paragon reward ready",
+	PARAGON_REWARD_READY = "Paragon Reward Ready",
+	PROGRESS_BAR_TOOLTIP_TITLE = "Progress Bar Legend",
+	PROGRESS_BAR_TOOLTIP_OVERALL = "Blue: Overall progress toward finishing the reputation.",
+	PROGRESS_BAR_TOOLTIP_BAND = "Orange: Progress within the current rank or renown level.",
+	PROGRESS_BAR_TOOLTIP_MAXED = "Gold: The reputation is fully maxed.",
+	PROGRESS_BAR_TOOLTIP_PARAGON = "Purple: Paragon progress after the reputation is maxed.",
 }
 
 ns.FORMAT = {
 	COUNT_EMPTY = "No factions match the current search and dropdown filters.  Characters: %d",
 	COUNT_RESULTS = "Factions: %d  Characters: %d",
-	STATUS_FOOTER = "Last snapshot: %s  Source: %s  Tip: each alt must log in once to appear here.",
-	ALTS_TRACKED = "%d/%d alts",
+	STATUS_FOOTER = "Last Snapshot: %s  Source: %s  Tip: each alt must log in once to appear here.",
+	VERSION_FOOTER = "Version: %s",
+	CHARACTER_COUNT = "%d Character%s",
 	BEST_CHARACTER = "Best: %s",
 	PROGRESS_SUMMARY = "%s  Maxed %d",
-	DETAIL_LAST_SCAN = "Last scan: %s",
-	DETAIL_STATUS = "%s  %s",
+	DETAIL_LAST_SCAN = "Last Scan: %s",
 	DETAIL_SUBTITLE = "%s  %s",
-	DETAIL_SUMMARY = "Best alt: %s  Maxed on %d / %d",
-	DETAIL_SUMMARY_WARBAND = "Warband reputation. Last snapshot from %s.",
-	DETAIL_MISSING_SCANS = "  Missing scans: %d",
+	DETAIL_SUMMARY = "Best Alt: %s  Maxed: %d/%d",
+	DETAIL_SUMMARY_WARBAND = "Warband Reputation. Last Snapshot: %s.",
 	STANDARD_SCAN_CAPTURED = "Standard scan captured %d faction rows.",
 	SAVED_REPUTATIONS = "Saved %d reputations for %s.",
 }
@@ -148,7 +161,7 @@ ns.FORMAT = {
 ns.LOG = {
 	ADDON_LOADED = "Alt Rep Tracker loaded. Use %s to open the browser.",
 	MAIN_FRAME_CREATED = "Main frame created. Use %s to open it.",
-	SCAN_FAILED = "Scan failed: %s",
+	SCAN_FAILED = "Scan Failed: %s",
 }
 
 ns.DEFAULT_MAIN_FRAME_POSITION = {

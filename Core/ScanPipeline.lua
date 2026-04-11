@@ -10,34 +10,6 @@ local function saveCurrentCharacterSnapshot(reason, scanRows)
 	return snapshot
 end
 
-local function buildStoredStandardRow(meta)
-	local factionID = ns.SafeNumber(meta and meta.factionID, 0)
-	if factionID <= 0 then
-		return nil
-	end
-
-	return {
-		factionKey = tostring(factionID),
-		factionID = factionID,
-		name = ns.NormalizeText(meta and meta.name),
-		standingId = ns.SafeNumber(meta and meta.standingId, 0),
-		standingText = ns.SafeString(meta and meta.standingText),
-		currentValue = ns.SafeNumber(meta and meta.currentValue, 0),
-		maxValue = ns.SafeNumber(meta and meta.maxValue, 0),
-		currentStanding = ns.SafeNumber(meta and meta.currentStanding, 0),
-		bottomValue = ns.SafeNumber(meta and meta.bottomValue, 0),
-		topValue = ns.SafeNumber(meta and meta.topValue, 0),
-		isAccountWide = meta and meta.isAccountWide == true or false,
-		isWatched = meta and meta.isWatched == true or false,
-		atWar = meta and meta.atWar == true or false,
-		canToggleAtWar = meta and meta.canToggleAtWar == true or false,
-		isChild = meta and meta.isChild == true or false,
-		headerPath = type(meta and meta.headerPath) == "table" and ns.CopyArray(meta.headerPath) or {},
-		expansionKey = ns.SafeString(meta and meta.expansionKey, ns.ALL_EXPANSIONS_KEY),
-		repType = ns.REP_TYPE.STANDARD,
-	}
-end
-
 local function buildUnresolvedFactionLabel(names)
 	if #names == 0 then
 		return "-"
@@ -56,7 +28,6 @@ local function buildTargetedScanRows(factionIDs, metaByFactionID)
 	local rows = {}
 	local addedByFactionKey = {}
 	local standardCount = 0
-	local majorFallbackCount = 0
 	local unresolvedNames = {}
 
 	for index = 1, #factionIDs do
@@ -65,12 +36,6 @@ local function buildTargetedScanRows(factionIDs, metaByFactionID)
 		local scanRow = ns.GetStandardScanRowByFactionID and ns.GetStandardScanRowByFactionID(factionID, knownMeta) or nil
 		if scanRow then
 			standardCount = standardCount + 1
-		else
-			local storedRow = buildStoredStandardRow(knownMeta)
-			scanRow = ns.GetMajorFactionScanRowByFactionID and ns.GetMajorFactionScanRowByFactionID(factionID, storedRow) or nil
-			if scanRow then
-				majorFallbackCount = majorFallbackCount + 1
-			end
 		end
 
 		if scanRow and scanRow.factionKey and not addedByFactionKey[scanRow.factionKey] then
@@ -83,11 +48,10 @@ local function buildTargetedScanRows(factionIDs, metaByFactionID)
 	end
 
 	ns.DebugLog(string.format(
-		"Targeted refresh resolved=%d requested=%d standard=%d majorFallback=%d unresolved=%d names=%s",
+		"Targeted refresh resolved=%d requested=%d standard=%d unresolved=%d names=%s",
 		#rows,
 		#factionIDs,
 		standardCount,
-		majorFallbackCount,
 		#unresolvedNames,
 		buildUnresolvedFactionLabel(unresolvedNames)
 	))

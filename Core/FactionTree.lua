@@ -35,11 +35,6 @@ function tree.RebuildBucketSearchText(bucket)
 	))
 end
 
-local function isForcedRoot(bucket)
-	local factionID = ns.SafeNumber(bucket and bucket.factionID, 0)
-	return ns.FACTION_FORCE_ROOT_IDS and ns.FACTION_FORCE_ROOT_IDS[factionID] == true or false
-end
-
 local function findBestNamedBucket(name, expansionKey, bucketsByName, currentFactionKey)
 	local normalizedName = ns.NormalizeSearchText(name)
 	if normalizedName == "" then
@@ -47,33 +42,24 @@ local function findBestNamedBucket(name, expansionKey, bucketsByName, currentFac
 	end
 
 	local candidates = bucketsByName[normalizedName]
-	local fallback = nil
 	for candidateIndex = 1, #(candidates or {}) do
 		local candidate = candidates[candidateIndex]
-		if candidate and candidate.factionKey ~= currentFactionKey then
-			if candidate.expansionKey == expansionKey then
-				return candidate
-			end
-			fallback = fallback or candidate
+		if candidate
+			and candidate.factionKey ~= currentFactionKey
+			and candidate.expansionKey == expansionKey
+		then
+			return candidate
 		end
 	end
 
-	return fallback
-end
-
-local function chooseParentBucketFromHints(bucket, byFactionKey)
-	local factionID = ns.SafeNumber(bucket.factionID, 0)
-	local hintedParentID = ns.FACTION_PARENT_HINTS_BY_ID and ns.FACTION_PARENT_HINTS_BY_ID[factionID] or nil
-	if hintedParentID then
-		local parentBucket = byFactionKey[tostring(hintedParentID)]
-		if parentBucket and parentBucket.factionKey ~= bucket.factionKey then
-			return parentBucket
-		end
-	end
 	return nil
 end
 
 local function chooseParentBucketFromHeaders(bucket, bucketsByName)
+	if bucket.isChild == false then
+		return nil
+	end
+
 	local headerPath = bucket.headerPath
 	if type(headerPath) ~= "table" or #headerPath == 0 then
 		return nil
@@ -84,6 +70,8 @@ local function chooseParentBucketFromHeaders(bucket, bucketsByName)
 		return nil
 	end
 
+	-- Never fall back across expansions; classic section headers like
+	-- "Steamwheedle Cartel" should not attach to unrelated modern factions.
 	return findBestNamedBucket(directParentName, bucket.expansionKey, bucketsByName, bucket.factionKey)
 end
 
@@ -155,15 +143,12 @@ function tree.LinkBucketRelationships(all, byFactionKey)
 
 	for index = 1, #all do
 		local bucket = all[index]
-		if not isForcedRoot(bucket) then
-			local parentBucket = chooseParentBucketFromHints(bucket, byFactionKey)
-				or chooseParentBucketFromHeaders(bucket, bucketsByName)
-			if parentBucket and parentBucket ~= bucket then
-				bucket.parentFactionKey = parentBucket.factionKey
-				bucket.parentFactionName = parentBucket.name
-				parentBucket.childFactionKeys = parentBucket.childFactionKeys or {}
-				appendUnique(parentBucket.childFactionKeys, bucket.factionKey)
-			end
+		local parentBucket = chooseParentBucketFromHeaders(bucket, bucketsByName)
+		if parentBucket and parentBucket ~= bucket then
+			bucket.parentFactionKey = parentBucket.factionKey
+			bucket.parentFactionName = parentBucket.name
+			parentBucket.childFactionKeys = parentBucket.childFactionKeys or {}
+			appendUnique(parentBucket.childFactionKeys, bucket.factionKey)
 		end
 	end
 

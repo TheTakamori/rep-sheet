@@ -9,17 +9,28 @@ local function buildFactionKey(row)
 	return ns.NormalizeSearchText(row.name)
 end
 
+local function resolveStandingText(row)
+	local standingText = ns.SafeString(row and row.standingText)
+	if standingText ~= "" then
+		return standingText
+	end
+
+	local standingId = ns.SafeNumber(row and row.standingId, 0)
+	if standingId > 0 then
+		return ns.StandingLabel(standingId)
+	end
+
+	return ""
+end
+
 local function buildRankText(repType, row, special)
 	if repType == ns.REP_TYPE.MAJOR then
 		local renownLevel = ns.SafeNumber(special.renownLevel, 0)
 		local renownMax = ns.SafeNumber(special.renownMaxLevel, 0)
-		if renownLevel > 0 and renownMax > 0 then
-			return string.format("%s %d / %d", ns.TEXT.RENOWN, renownLevel, renownMax)
+		if ns.HasValidMajorRenown(special) then
+			return string.format("%s: %s", ns.TEXT.RENOWN, ns.FormatProgressValues(renownLevel, renownMax))
 		end
-		if renownLevel > 0 then
-			return string.format("%s %d", ns.TEXT.RENOWN, renownLevel)
-		end
-		return ns.TEXT.RENOWN
+		return row.standingText or ns.TEXT.REPUTATION
 	end
 
 	if repType == ns.REP_TYPE.FRIENDSHIP then
@@ -30,19 +41,57 @@ local function buildRankText(repType, row, special)
 		local currentRank = ns.SafeNumber(special.friendCurrentRank, 0)
 		local maxRank = ns.SafeNumber(special.friendMaxRank, 0)
 		if currentRank > 0 and maxRank > 0 then
-			return string.format("Rank %d / %d", currentRank, maxRank)
+			return string.format("Rank: %s", ns.FormatProgressValues(currentRank, maxRank))
 		end
 		return ns.TEXT.FRIENDSHIP
 	end
 
 	if repType == ns.REP_TYPE.NEIGHBORHOOD then
-		if row.standingText and row.standingText ~= "" then
-			return row.standingText
+		local standingText = resolveStandingText(row)
+		if standingText ~= "" then
+			return standingText
 		end
 		return ns.TEXT.NEIGHBORHOOD
 	end
 
-	return row.standingText or ns.TEXT.REPUTATION
+	local standingText = resolveStandingText(row)
+	if standingText ~= "" then
+		return standingText
+	end
+	return ns.TEXT.REPUTATION
+end
+
+local function isCappedMajorRenown(special)
+	if not ns.HasValidMajorRenown(special) then
+		return false
+	end
+	return ns.SafeNumber(special.renownLevel, 0) >= ns.SafeNumber(special.renownMaxLevel, 0)
+end
+
+local function traceContradictoryMajorRenown(row, special, currentValue, maxValue)
+	if not isCappedMajorRenown(special) or ns.SafeNumber(maxValue, 0) <= 0 or ns.SafeNumber(currentValue, 0) >= ns.SafeNumber(maxValue, 0) then
+		return
+	end
+
+	local state = ns.PlayerStateEnsure()
+	state.majorRenownContradictions = type(state.majorRenownContradictions) == "table" and state.majorRenownContradictions or {}
+	local factionKey = tostring(row and row.factionKey or row and row.factionID or special and special.majorFactionID or "")
+	if factionKey == "" or state.majorRenownContradictions[factionKey] then
+		return
+	end
+
+	state.majorRenownContradictions[factionKey] = true
+	ns.DebugLog(string.format(
+		'MAJOR contradiction name="%s" faction=%s major=%s renown=%s/%s xp=%s/%s paragon=%s',
+		row and row.name or ns.TEXT.UNKNOWN,
+		ns.DebugValueText(row and row.factionID),
+		ns.DebugValueText(special and special.majorFactionID),
+		ns.DebugValueText(special and special.renownLevel),
+		ns.DebugValueText(special and special.renownMaxLevel),
+		ns.DebugValueText(currentValue),
+		ns.DebugValueText(maxValue),
+		ns.DebugValueText(special and special.hasParagon)
+	))
 end
 
 local function deriveOverallFraction(repType, row, special, currentValue, maxValue, isMaxed)
@@ -51,11 +100,11 @@ local function deriveOverallFraction(repType, row, special, currentValue, maxVal
 	if repType == ns.REP_TYPE.MAJOR then
 		local currentLevel = ns.SafeNumber(special.renownLevel, 0)
 		local maxLevel = ns.SafeNumber(special.renownMaxLevel, 0)
-		if maxLevel > 0 and currentLevel > 0 then
+		if maxLevel > 0 and currentLevel >= 0 then
 			if isMaxed then
 				return 1
 			end
-			return ns.Clamp(((currentLevel - 1) + tierFraction) / maxLevel, 0, 1)
+			return ns.Clamp((math.max(currentLevel - 1, 0) + tierFraction) / maxLevel, 0, 1)
 		end
 		return tierFraction
 	end
@@ -89,12 +138,16 @@ local function shouldShowParagonProgress(repType, special, isMaxed)
 	end
 
 	if repType == ns.REP_TYPE.MAJOR then
-		local renownLevel = ns.SafeNumber(special.renownLevel, 0)
-		local renownMax = ns.SafeNumber(special.renownMaxLevel, 0)
-		return renownMax > 0 and renownLevel >= renownMax
+		return isCappedMajorRenown(special)
 	end
 
 	return isMaxed == true
+end
+
+local function shouldShowMeaningfulMajorProgress(special, maxValue, isMaxed)
+	return ns.HasValidMajorRenown(special)
+		and not isMaxed
+		and ns.SafeNumber(maxValue, 0) > 0
 end
 
 local function isAtMaximumStandardStanding(row, currentValue, maxValue)
@@ -134,14 +187,9 @@ local function chooseNormalizedValues(row, special)
 
 	local isMaxed = false
 	if repType == ns.REP_TYPE.MAJOR then
-		local renownLevel = ns.SafeNumber(special.renownLevel, 0)
-		local renownMax = ns.SafeNumber(special.renownMaxLevel, 0)
-		if renownMax > 0 and renownLevel >= renownMax and maxValue <= 0 then
+		if isCappedMajorRenown(special) then
 			isMaxed = true
-		elseif maxValue > 0 and currentValue >= maxValue and renownMax > 0 and renownLevel >= renownMax then
-			isMaxed = true
-		end
-		if not isMaxed and special.hasParagon and renownMax > 0 and renownLevel >= renownMax then
+		elseif special.hasParagon and (maxValue <= 0 or currentValue >= maxValue) then
 			isMaxed = true
 		end
 	elseif repType == ns.REP_TYPE.FRIENDSHIP then
@@ -164,21 +212,124 @@ local function chooseNormalizedValues(row, special)
 		currentValue = maxValue
 	end
 
+	if repType == ns.REP_TYPE.MAJOR then
+		traceContradictoryMajorRenown(row, special, currentValue, maxValue)
+	end
+
 	return repType, currentValue, maxValue, isMaxed
 end
 
 local function buildProgressText(currentValue, maxValue, special, repType, isMaxed)
-	local progressText = ns.FormatProgressValues(currentValue, maxValue)
 	local showParagon = shouldShowParagonProgress(repType, special, isMaxed)
+	if repType == ns.REP_TYPE.MAJOR then
+		local parts = {}
+		if ns.HasValidMajorRenown(special) then
+			if shouldShowMeaningfulMajorProgress(special, maxValue, isMaxed) then
+				parts[#parts + 1] = string.format(
+					"%s: %s",
+					ns.TEXT.RENOWN_XP,
+					ns.FormatProgressValues(currentValue, maxValue)
+				)
+			end
+			if showParagon then
+				parts[#parts + 1] = string.format(
+					"%s: %s%s",
+					ns.TEXT.PARAGON,
+					ns.FormatProgressValues(special.paragonValue, special.paragonThreshold),
+					special.paragonRewardPending and " ready" or ""
+				)
+			end
+			return table.concat(parts, "  ")
+		end
+		if currentValue > 0 or maxValue > 0 then
+			parts[#parts + 1] = string.format(
+				"%s",
+				ns.FormatProgressValues(currentValue, maxValue)
+			)
+		end
+		if showParagon then
+			parts[#parts + 1] = string.format(
+				"%s: %s%s",
+				ns.TEXT.PARAGON,
+				ns.FormatProgressValues(special.paragonValue, special.paragonThreshold),
+				special.paragonRewardPending and " ready" or ""
+			)
+		end
+		return table.concat(parts, "  ")
+	end
+
+	local progressText = ns.FormatProgressValues(currentValue, maxValue)
 	if showParagon then
 		progressText = string.format(
-			"%s  Paragon %s%s",
+			"%s  %s: %s%s",
 			progressText,
+			ns.TEXT.PARAGON,
 			ns.FormatProgressValues(special.paragonValue, special.paragonThreshold),
 			special.paragonRewardPending and " ready" or ""
 		)
 	end
 	return progressText
+end
+
+function helpers.ApplyRuntimeReputationFields(entry)
+	if type(entry) ~= "table" then
+		return
+	end
+
+	local expansionKey = ns.SafeString(entry.expansionKey, ns.ALL_EXPANSIONS_KEY)
+	local row = {
+		factionKey = entry.factionKey,
+		factionID = entry.factionID,
+		name = entry.name,
+		standingId = ns.SafeNumber(entry.standingId, 0),
+		standingText = resolveStandingText(entry),
+		currentValue = entry.currentValue,
+		maxValue = entry.maxValue,
+		currentStanding = entry.currentStanding,
+		bottomValue = entry.bottomValue,
+		topValue = entry.topValue,
+		isAccountWide = entry.isAccountWide == true,
+		isWatched = entry.isWatched == true,
+		isChild = entry.isChild == true,
+		headerPath = type(entry.headerPath) == "table" and ns.CopyArray(entry.headerPath) or {},
+		expansionKey = expansionKey,
+		repType = entry.repType,
+		majorFactionID = entry.majorFactionID,
+	}
+	local special = {
+		repType = entry.repType,
+		majorFactionID = ns.SafeNumber(entry.majorFactionID, 0),
+		isAccountWide = entry.isAccountWide == true,
+		hasParagon = entry.hasParagon == true,
+		paragonValue = ns.SafeNumber(entry.paragonValue, 0),
+		paragonThreshold = ns.SafeNumber(entry.paragonThreshold, 0),
+		paragonRewardPending = entry.paragonRewardPending == true,
+		currentValue = entry.currentValue,
+		maxValue = entry.maxValue,
+		renownLevel = ns.SafeNumber(entry.renownLevel, 0),
+		renownMaxLevel = ns.SafeNumber(entry.renownMaxLevel, 0),
+		friendCurrentRank = ns.SafeNumber(entry.friendCurrentRank, 0),
+		friendMaxRank = ns.SafeNumber(entry.friendMaxRank, 0),
+		friendTextLevel = ns.SafeString(entry.friendTextLevel),
+	}
+	local repType, currentValue, maxValue, isMaxed = chooseNormalizedValues(row, special)
+	local showParagonLabel = shouldShowParagonProgress(repType, special, isMaxed)
+	local overallFraction = deriveOverallFraction(repType, row, special, currentValue, maxValue, isMaxed)
+
+	entry.repType = repType
+	entry.expansionKey = expansionKey
+	entry.expansionName = ns.ExpansionLabelForKey(expansionKey)
+	entry.standingText = row.standingText
+	entry.repTypeLabel = ns.RepTypeLabel(repType, showParagonLabel, special)
+	entry.rankText = buildRankText(repType, row, special)
+	entry.progressText = buildProgressText(currentValue, maxValue, special, repType, isMaxed)
+	entry.currentValue = currentValue
+	entry.maxValue = maxValue
+	entry.isMaxed = isMaxed
+	entry.overallFraction = overallFraction
+	entry.remainingFraction = isMaxed and 0 or (maxValue > 0 and ns.Clamp((maxValue - currentValue) / maxValue, 0, 1) or (1 - overallFraction))
+	entry.headerLabel = type(row.headerPath) == "table" and table.concat(row.headerPath, " / ") or ""
+	entry.icon = ns.IconForRepType(repType)
 end
 
 function helpers.normalizeFactionRow(row, special)
@@ -207,9 +358,9 @@ function helpers.normalizeFactionRow(row, special)
 		expansionKey = expansionKey,
 		expansionName = ns.ExpansionLabelForKey(expansionKey),
 		repType = repType,
-		repTypeLabel = ns.RepTypeLabel(repType, showParagonLabel),
+		repTypeLabel = ns.RepTypeLabel(repType, showParagonLabel, special),
 		standingId = row.standingId,
-		standingText = row.standingText,
+		standingText = resolveStandingText(row),
 		rankText = rankText,
 		progressText = buildProgressText(currentValue, maxValue, special, repType, isMaxed),
 		currentValue = currentValue,
@@ -218,6 +369,7 @@ function helpers.normalizeFactionRow(row, special)
 		remainingFraction = remainingFraction,
 		isMaxed = isMaxed,
 		isAccountWide = special.isAccountWide == true or row.isAccountWide == true,
+		isChild = row.isChild == true,
 		isWatched = row.isWatched == true,
 		headerPath = row.headerPath,
 		headerLabel = type(row.headerPath) == "table" and table.concat(row.headerPath, " / ") or "",
@@ -238,7 +390,7 @@ function helpers.normalizeFactionRow(row, special)
 			"%s %s %s %s",
 			row.name or "",
 			ns.ExpansionLabelForKey(expansionKey),
-			ns.RepTypeLabel(repType, showParagonLabel),
+			ns.RepTypeLabel(repType, showParagonLabel, special),
 			rankText
 		)),
 	}

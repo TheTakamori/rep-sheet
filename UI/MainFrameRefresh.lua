@@ -132,6 +132,10 @@ function ns.RefreshMainFrame()
 	local visibleRows = ns.GetVisibleFactionRows()
 	local total = #filtered
 
+	if main.UpdateForgetAltButtonState then
+		main:UpdateForgetAltButtonState()
+	end
+
 	local selectedKey = ns.GetSelectedFactionKey()
 	if not filteredContainsFaction(visibleRows, selectedKey) then
 		selectedKey = visibleRows[1] and visibleRows[1].factionKey or nil
@@ -179,6 +183,7 @@ function ns.RefreshMainFrame()
 	local scanSource = db.lastScanCharacter ~= "" and (ns.GetCharacterByKey(db.lastScanCharacter) and ns.FormatCharacterName(ns.GetCharacterByKey(db.lastScanCharacter)) or db.lastScanCharacter)
 		or ns.TEXT.UNKNOWN
 	main.statusLabel:SetText(string.format(ns.FORMAT.STATUS_FOOTER, lastScanLabel, scanSource))
+	main.versionLabel:SetText(string.format(ns.FORMAT.VERSION_FOOTER, ns.GetAddonVersion()))
 
 	if main.debugPane and main.debugPane:IsShown() and main.debugPane.Refresh then
 		main.debugPane:Refresh()

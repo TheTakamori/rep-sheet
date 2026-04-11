@@ -27,6 +27,23 @@ function ns.GetPrimarySlashCommand()
 	return ns.SLASH_COMMANDS[1] or ""
 end
 
+function ns.GetAddonVersion()
+	local addonName = ns.SafeString(ns.ADDON_NAME)
+	if addonName == "" then
+		return ns.TEXT.UNKNOWN
+	end
+
+	local metadataKey = ns.SafeString(ns.ADDON_METADATA_VERSION_KEY)
+	local version = nil
+	if C_AddOns and type(C_AddOns.GetAddOnMetadata) == "function" then
+		version = C_AddOns.GetAddOnMetadata(addonName, metadataKey)
+	elseif type(GetAddOnMetadata) == "function" then
+		version = GetAddOnMetadata(addonName, metadataKey)
+	end
+
+	return ns.SafeString(version, ns.TEXT.UNKNOWN)
+end
+
 function ns.GetOptionLabel(options, selectedKey, fallbackLabel)
 	if type(options) == "table" then
 		for index = 1, #options do

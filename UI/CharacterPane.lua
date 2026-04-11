@@ -50,7 +50,10 @@ local function createDetailRow(parent, index)
 		colors.STATUS_BAR_BG_SOLID[3],
 		colors.STATUS_BAR_BG_SOLID[4]
 	)
+	ui.CreateBandOverlay(row.progressBar)
 	ui.CreateParagonOverlay(row.progressBar)
+	ui.CreateOverallOverlay(row.progressBar)
+	ui.AttachProgressBarTooltip(row.progressBar)
 
 	return row
 end
@@ -63,9 +66,8 @@ local function applyDetailRow(row, entry)
 
 	row:Show()
 	local statusText = entry.rankText or ns.TEXT.NO_DATA
-	local metaText = string.format(ns.FORMAT.DETAIL_LAST_SCAN, ns.FormatLastSeen(entry.lastScanAt))
+	local progressText = ns.SafeString(entry.progressText)
 	local barValue = ns.SafeNumber(entry.overallFraction, 0)
-	local barColor = colors.STATUS_BAR_DEFAULT
 
 	if entry.isAccountWide then
 		row.name:SetText(ns.TEXT.WARBAND)
@@ -76,19 +78,14 @@ local function applyDetailRow(row, entry)
 		row.name:SetTextColor(r, g, b)
 	end
 
-	if entry.paragonRewardPending then
-		metaText = metaText .. "  " .. ns.TEXT.PARAGON_REWARD_READY
+	if progressText ~= "" then
+		row.status:SetText(ns.FormatStatusWithProgress(statusText, progressText))
+	else
+		row.status:SetText(statusText)
 	end
-
-	row.status:SetText(string.format(ns.FORMAT.DETAIL_STATUS, statusText, entry.progressText or ""))
-	row.meta:SetText(metaText)
+	row.meta:SetText(entry.paragonRewardPending and ns.TEXT.PARAGON_REWARD_READY or "")
 	row.progressBar:Show()
-	row.progressBar:SetValue(barValue)
-	ui.ApplyStatusBarColor(row.progressBar, barColor)
-	if ns.IsVisuallyMaxed(barValue) then
-		ui.ApplyStatusBarColor(row.progressBar, colors.STATUS_BAR_MAXED)
-	end
-	ui.UpdateParagonOverlay(row.progressBar, entry)
+	ui.UpdateProgressBar(row.progressBar, entry, barValue)
 end
 
 function ns.UI_CreateCharacterPane(parent)
@@ -206,9 +203,6 @@ function ns.UI_CreateCharacterPane(parent)
 			summary = string.format(ns.FORMAT.DETAIL_SUMMARY_WARBAND, bucket.bestCharacterName or ns.TEXT.UNKNOWN)
 		else
 			summary = string.format(ns.FORMAT.DETAIL_SUMMARY, bucket.bestCharacterName or ns.TEXT.UNKNOWN, bucket.maxedCount or 0, bucket.totalCharacters or 0)
-			if bucket.anyMissing then
-				summary = summary .. string.format(ns.FORMAT.DETAIL_MISSING_SCANS, math.max(0, (bucket.totalCharacters or 0) - (bucket.capturedCount or 0)))
-			end
 		end
 		self.summary:SetText(summary)
 		self.favoriteBtn:SetText(ns.IsFavoriteFaction(bucket.factionKey) and ns.TEXT.UNFAVORITE or ns.TEXT.FAVORITE)

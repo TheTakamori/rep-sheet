@@ -17,9 +17,6 @@ local function bucketMatchesFilters(bucket, expansionKey, searchText, statusKey)
 	if statusKey == ns.FILTER_STATUS.MAXED then
 		return bucket.maxedCount > 0
 	end
-	if statusKey == ns.FILTER_STATUS.MISSING then
-		return bucket.anyMissing
-	end
 
 	return true
 end
