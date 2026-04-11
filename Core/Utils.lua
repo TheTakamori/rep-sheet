@@ -1,0 +1,110 @@
+AltRepTracker = AltRepTracker or {}
+local ns = AltRepTracker
+
+local function trim(text)
+	if type(text) ~= "string" then
+		return ""
+	end
+	text = text:gsub("^%s+", "")
+	text = text:gsub("%s+$", "")
+	return text
+end
+
+function ns.Clamp(value, minValue, maxValue)
+	if value == nil then
+		return minValue
+	end
+	if value < minValue then
+		return minValue
+	end
+	if value > maxValue then
+		return maxValue
+	end
+	return value
+end
+
+function ns.GetPrimarySlashCommand()
+	return ns.SLASH_COMMANDS[1] or ""
+end
+
+function ns.GetOptionLabel(options, selectedKey, fallbackLabel)
+	if type(options) == "table" then
+		for index = 1, #options do
+			local option = options[index]
+			if option.key == selectedKey then
+				return option.label
+			end
+		end
+		if options[1] and options[1].label then
+			return options[1].label
+		end
+	end
+	return fallbackLabel or ""
+end
+
+function ns.SafeNumber(value, fallback)
+	local n = tonumber(value)
+	if n == nil then
+		return fallback or 0
+	end
+	return n
+end
+
+function ns.SafeString(value, fallback)
+	if type(value) ~= "string" or value == "" then
+		return fallback or ""
+	end
+	return value
+end
+
+function ns.Round(value)
+	if type(value) ~= "number" then
+		return 0
+	end
+	if value >= 0 then
+		return math.floor(value + 0.5)
+	end
+	return math.ceil(value - 0.5)
+end
+
+function ns.CountTable(tbl)
+	if type(tbl) ~= "table" then
+		return 0
+	end
+	local total = 0
+	for _ in pairs(tbl) do
+		total = total + 1
+	end
+	return total
+end
+
+function ns.NormalizeText(text)
+	if type(text) ~= "string" then
+		return ""
+	end
+	text = text:gsub("|c%x%x%x%x%x%x%x%x", "")
+	text = text:gsub("|r", "")
+	text = text:gsub("|T.-|t", "")
+	text = text:gsub("\n", " ")
+	text = text:gsub("%s+", " ")
+	return trim(text)
+end
+
+function ns.NormalizeSearchText(text)
+	return string.lower(ns.NormalizeText(text))
+end
+
+function ns.SafeTime()
+	if time then
+		return time()
+	end
+	return 0
+end
+
+function ns.CopyArray(values)
+	local out = {}
+	for index = 1, #(values or {}) do
+		out[index] = values[index]
+	end
+	return out
+end

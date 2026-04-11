@@ -1,0 +1,248 @@
+AltRepTracker = AltRepTracker or {}
+local ns = AltRepTracker
+
+local function pick(data, ...)
+	if type(data) ~= "table" then
+		return nil
+	end
+	for index = 1, select("#", ...) do
+		local key = select(index, ...)
+		if data[key] ~= nil then
+			return data[key]
+		end
+	end
+	return nil
+end
+
+local function copyRow(row)
+	local out = {}
+	for key, value in pairs(row or {}) do
+		if key == "headerPath" and type(value) == "table" then
+			out[key] = ns.CopyArray(value)
+		else
+			out[key] = value
+		end
+	end
+	return out
+end
+
+local function collectMajorFactionIDs()
+	local ids = {}
+	local added = {}
+
+	local function addID(value)
+		value = ns.SafeNumber(value, 0)
+		if value <= 0 or added[value] then
+			return
+		end
+		added[value] = true
+		ids[#ids + 1] = value
+	end
+
+	if C_MajorFactions and type(C_MajorFactions.GetMajorFactionIDs) == "function" then
+		local ok, result = pcall(C_MajorFactions.GetMajorFactionIDs)
+		if ok and type(result) == "table" then
+			for key, value in pairs(result) do
+				if type(key) == "number" then
+					addID(value)
+				else
+					addID(key)
+					addID(value)
+				end
+			end
+		end
+	end
+
+	for index = 1, #(ns.EXTRA_MAJOR_FACTION_IDS or {}) do
+		addID(ns.EXTRA_MAJOR_FACTION_IDS[index])
+	end
+
+	table.sort(ids)
+	return ids
+end
+
+local function buildStandardRowsByFactionKey(rows)
+	local byFactionKey = {}
+	for index = 1, #(rows or {}) do
+		local row = rows[index]
+		if row and row.factionKey then
+			byFactionKey[tostring(row.factionKey)] = row
+		end
+	end
+	return byFactionKey
+end
+
+local function resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, factionID, rowName)
+	if standardRow and type(standardRow.headerPath) == "table" and #standardRow.headerPath > 0 then
+		return ns.CopyArray(standardRow.headerPath)
+	end
+
+	local byName = headerAncestorsByName and headerAncestorsByName[ns.NormalizeSearchText(rowName)] or nil
+	if type(byName) == "table" and #byName > 0 then
+		return ns.CopyArray(byName)
+	end
+
+	return {}
+end
+
+local function buildMajorScanRow(factionID, data, standardRow, headerAncestorsByName)
+	if type(data) ~= "table" or next(data) == nil then
+		return nil
+	end
+
+	local rowName = ns.NormalizeText(pick(data, "name"))
+	if rowName == "" then
+		return nil
+	end
+
+	local expansionID = pick(data, "expansionID", "expansion", "gameExpansion")
+	local headerPath = resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, factionID, rowName)
+	local expansionKey = (standardRow and standardRow.expansionKey)
+		or ns.ResolveFactionExpansionOverride(factionID, rowName)
+		or ns.ExpansionKeyFromGameExp(expansionID)
+		or ns.ResolveExpansionKeyFromHeaders(headerPath)
+		or ns.ALL_EXPANSIONS_KEY
+
+	if #headerPath == 0 and expansionKey ~= ns.ALL_EXPANSIONS_KEY then
+		local expansionName = ns.ExpansionLabelForKey(expansionKey)
+		if expansionName ~= "" then
+			headerPath[#headerPath + 1] = expansionName
+		end
+	end
+
+	return {
+		factionKey = tostring(factionID),
+		factionID = factionID,
+		name = rowName,
+		description = ns.NormalizeText(pick(data, "description")),
+		standingId = standardRow and standardRow.standingId or 0,
+		standingText = standardRow and standardRow.standingText or "",
+		currentValue = standardRow and standardRow.currentValue or 0,
+		maxValue = standardRow and standardRow.maxValue or 0,
+		currentStanding = standardRow and standardRow.currentStanding or 0,
+		bottomValue = standardRow and standardRow.bottomValue or 0,
+		topValue = standardRow and standardRow.topValue or 0,
+		isAccountWide = pick(data, "isAccountWide", "isWarband") ~= false or (standardRow and standardRow.isAccountWide == true),
+		isWatched = standardRow and standardRow.isWatched == true or false,
+		atWar = standardRow and standardRow.atWar == true or false,
+		canToggleAtWar = standardRow and standardRow.canToggleAtWar == true or false,
+		isChild = standardRow and standardRow.isChild == true or false,
+		headerPath = headerPath,
+		expansionKey = expansionKey,
+		expansionID = expansionID or (standardRow and standardRow.expansionID),
+		repType = ns.REP_TYPE.STANDARD,
+		majorFactionID = factionID,
+		icon = ns.IconForRepType(ns.REP_TYPE.MAJOR),
+		rawMajorData = data,
+	}
+end
+
+local function mergeMajorRowIntoStandardRow(merged, majorRow)
+	if not merged or not majorRow then
+		return merged
+	end
+
+	merged.majorFactionID = ns.SafeNumber(majorRow.majorFactionID, ns.SafeNumber(merged.majorFactionID, 0))
+	merged.isAccountWide = merged.isAccountWide == true or majorRow.isAccountWide == true
+	merged.rawMajorData = majorRow.rawMajorData or merged.rawMajorData
+	merged.description = ns.SafeString(merged.description) ~= "" and merged.description or majorRow.description
+	merged.expansionKey = merged.expansionKey or majorRow.expansionKey
+	merged.expansionID = merged.expansionID or majorRow.expansionID
+	merged.icon = ns.IconForRepType(ns.REP_TYPE.MAJOR)
+
+	if type(majorRow.headerPath) == "table" and #majorRow.headerPath > 0 then
+		merged.headerPath = ns.CopyArray(majorRow.headerPath)
+	end
+
+	return merged
+end
+
+function ns.GetMajorFactionScanRowByFactionID(factionID, standardRow, scanContext)
+	if not C_MajorFactions or type(C_MajorFactions.GetMajorFactionData) ~= "function" then
+		return nil
+	end
+
+	local headerAncestorsByName = type(scanContext) == "table" and scanContext.headerAncestorsByName or nil
+	local ok, data = pcall(C_MajorFactions.GetMajorFactionData, factionID)
+	if not ok then
+		return nil
+	end
+
+	return buildMajorScanRow(factionID, data, standardRow, headerAncestorsByName)
+end
+
+function ns.ScanMajorReputations(standardRows, scanContext)
+	local rows = {}
+	if not C_MajorFactions or type(C_MajorFactions.GetMajorFactionData) ~= "function" then
+		return rows
+	end
+
+	local headerAncestorsByName = type(scanContext) == "table" and scanContext.headerAncestorsByName or nil
+	local standardByFactionKey = buildStandardRowsByFactionKey(standardRows)
+	local majorFactionIDs = collectMajorFactionIDs()
+
+	for index = 1, #majorFactionIDs do
+		local factionID = majorFactionIDs[index]
+		local factionKey = tostring(factionID)
+		local standardRow = standardByFactionKey[factionKey]
+		local scanRow = ns.GetMajorFactionScanRowByFactionID(factionID, standardRow, scanContext)
+		if scanRow then
+			rows[#rows + 1] = scanRow
+			ns.DebugLog(string.format(
+				'MAJOR row name="%s" faction=%s accountWide=%s expansion=%s headers=%s',
+				scanRow.name or ns.TEXT.UNKNOWN,
+				ns.DebugValueText(scanRow.factionID),
+				ns.DebugValueText(scanRow.isAccountWide),
+				ns.DebugValueText(scanRow.expansionKey),
+				type(scanRow.headerPath) == "table" and table.concat(scanRow.headerPath, " > ") or "-"
+			))
+		end
+	end
+
+	local state = ns.PlayerStateEnsure()
+	state.lastMajorScanCount = #rows
+	ns.DebugLog(string.format("Major scan captured %d faction rows.", #rows))
+	return rows
+end
+
+function ns.MergeScannedReputationRows(standardRows, majorRows)
+	local mergedByFactionKey = {}
+	local orderedKeys = {}
+
+	for index = 1, #(standardRows or {}) do
+		local row = standardRows[index]
+		if row and row.factionKey then
+			local key = tostring(row.factionKey)
+			mergedByFactionKey[key] = copyRow(row)
+			orderedKeys[#orderedKeys + 1] = key
+		end
+	end
+
+	for index = 1, #(majorRows or {}) do
+		local row = majorRows[index]
+		if row and row.factionKey then
+			local key = tostring(row.factionKey)
+			local merged = mergedByFactionKey[key]
+			if merged then
+				mergeMajorRowIntoStandardRow(merged, row)
+			else
+				merged = copyRow(row)
+				mergedByFactionKey[key] = merged
+				orderedKeys[#orderedKeys + 1] = key
+			end
+		end
+	end
+
+	local rows = {}
+	for index = 1, #orderedKeys do
+		rows[index] = mergedByFactionKey[orderedKeys[index]]
+	end
+
+	ns.DebugLog(string.format(
+		"Merged %d standard rows and %d major rows into %d raw rows.",
+		#(standardRows or {}),
+		#(majorRows or {}),
+		#rows
+	))
+	return rows
+end

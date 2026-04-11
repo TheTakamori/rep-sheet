@@ -1,0 +1,34 @@
+## Interface: 120000, 120001, 120005
+## Title: Alt Rep Tracker
+## Notes: Browse reputation progress across your alts.
+## Author: Local
+## Version: 0.1.0
+## SavedVariables: AltRepTrackerDB
+
+Core/Constants.lua
+Core/Utils.lua
+Core/ReputationUtils.lua
+Core/State.lua
+Core/DebugLog.lua
+Data/Expansions.lua
+Data/FactionExpansionMap.lua
+Data/FactionHierarchyHints.lua
+Core/ScannerStandardHelpers.lua
+Core/ScannerStandard.lua
+Core/ScannerMajor.lua
+Core/ScannerSpecial.lua
+Core/NormalizerHelpers.lua
+Core/Normalizer.lua
+Core/Index.lua
+Core/FactionFilters.lua
+Core/FactionTree.lua
+Core/OpenFactionUI.lua
+UI/UIConstants.lua
+UI/UIHelpers.lua
+UI/ListRow.lua
+UI/CharacterPane.lua
+UI/DebugPane.lua
+UI/MainFramePosition.lua
+UI/MainFrameRefresh.lua
+UI/MainFrame.lua
+Core/Bootstrap.lua
