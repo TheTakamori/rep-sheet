@@ -12,21 +12,6 @@ local function saveCurrentCharacterSnapshot(reason, scanRows, specialMap)
 	return snapshot
 end
 
-local function buildUnresolvedFactionLabel(names)
-	if #names == 0 then
-		return "-"
-	end
-	local limit = math.max(1, ns.SafeNumber(ns.DEBUG_LOG_NAME_LIMIT, 12))
-	if #names > limit then
-		local display = {}
-		for index = 1, limit do
-			display[index] = names[index]
-		end
-		return table.concat(display, ", ") .. ", ..."
-	end
-	return table.concat(names, ", ")
-end
-
 local function createTargetedRefreshStats(requestedCount)
 	return {
 		requestedCount = ns.SafeNumber(requestedCount, 0),
@@ -45,7 +30,7 @@ local function logTargetedRefreshSummary(rows, stats)
 		ns.SafeNumber(safeStats.standardCount, 0),
 		ns.SafeNumber(safeStats.majorCount, 0),
 		#(safeStats.unresolvedNames or {}),
-		buildUnresolvedFactionLabel(safeStats.unresolvedNames or {})
+		ns.FormatDebugNameList(safeStats.unresolvedNames or {})
 	))
 end
 

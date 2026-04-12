@@ -129,3 +129,44 @@ function ns.CopyArray(values)
 	end
 	return out
 end
+
+function ns.PickTableField(data, ...)
+	if type(data) ~= "table" then
+		return nil
+	end
+	for index = 1, select("#", ...) do
+		local key = select(index, ...)
+		if data[key] ~= nil then
+			return data[key]
+		end
+	end
+	return nil
+end
+
+function ns.FormatDebugNameList(names)
+	if type(names) ~= "table" then
+		return "-"
+	end
+
+	local values = {}
+	for index = 1, #names do
+		local name = ns.SafeString(names[index])
+		if name ~= "" then
+			values[#values + 1] = name
+		end
+	end
+	if #values == 0 then
+		return "-"
+	end
+
+	table.sort(values)
+	local limit = math.max(1, ns.SafeNumber(ns.DEBUG_LOG_NAME_LIMIT, 12))
+	local display = {}
+	for index = 1, math.min(#values, limit) do
+		display[#display + 1] = values[index]
+	end
+	if #values > limit then
+		display[#display + 1] = string.format("+%d more", #values - limit)
+	end
+	return table.concat(display, ", ")
+end

@@ -1,18 +1,6 @@
 RepSheet = RepSheet or {}
 local ns = RepSheet
-
-local function pick(data, ...)
-	if type(data) ~= "table" then
-		return nil
-	end
-	for i = 1, select("#", ...) do
-		local key = select(i, ...)
-		if data[key] ~= nil then
-			return data[key]
-		end
-	end
-	return nil
-end
+local pick = ns.PickTableField
 
 local function safeTableCall(fn, ...)
 	if type(fn) ~= "function" then

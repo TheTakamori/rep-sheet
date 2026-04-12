@@ -1,5 +1,106 @@
 local support = require("support")
 local A = support.assert
+local UI_TEST_FILES = support.with_files({
+	"UI/UIConstants.lua",
+	"UI/UIHelpers.lua",
+	"UI/UIProgressBar.lua",
+})
+
+local function install_status_bar_frame_factory(env)
+	env.CreateFrame = function()
+		local frame = {
+			__points = {},
+			__shown = false,
+			__frameLevel = 0,
+		}
+
+		function frame:SetPoint(point, _, relativePoint, x, y)
+			self.__points[#self.__points + 1] = {
+				point = point,
+				relativePoint = relativePoint,
+				x = x,
+				y = y,
+			}
+		end
+
+		function frame:ClearAllPoints()
+			self.__points = {}
+		end
+
+		function frame:SetStatusBarTexture(texture)
+			self.__texture = texture
+		end
+
+		function frame:SetMinMaxValues(minValue, maxValue)
+			self.__minValue = minValue
+			self.__maxValue = maxValue
+		end
+
+		function frame:SetFrameLevel(level)
+			self.__frameLevel = level
+		end
+
+		function frame:GetFrameLevel()
+			return self.__frameLevel
+		end
+
+		function frame:GetStatusBarTexture()
+			self.__statusBarTexture = self.__statusBarTexture or {
+				SetHorizTile = function(_, enabled)
+					frame.__horizTile = enabled
+				end,
+			}
+			return self.__statusBarTexture
+		end
+
+		function frame:SetWidth(width)
+			self.__width = width
+		end
+
+		function frame:SetValue(value)
+			self.__value = value
+		end
+
+		function frame:SetStatusBarColor(r, g, b)
+			self.__color = { r, g, b }
+		end
+
+		function frame:Hide()
+			self.__shown = false
+		end
+
+		function frame:Show()
+			self.__shown = true
+		end
+
+		return frame
+	end
+end
+
+local function new_status_bar(width)
+	local statusBar = {
+		__width = width or 100,
+		__frameLevel = 7,
+	}
+
+	function statusBar:GetWidth()
+		return self.__width
+	end
+
+	function statusBar:GetFrameLevel()
+		return self.__frameLevel
+	end
+
+	function statusBar:SetValue(value)
+		self.__value = value
+	end
+
+	function statusBar:SetStatusBarColor(r, g, b)
+		self.__color = { r, g, b }
+	end
+
+	return statusBar
+end
 
 return function(runner, root)
 	runner:test("NormalizeFactionIDList and MergeFactionIDLists dedupe and sort IDs", function()
@@ -18,6 +119,111 @@ return function(runner, root)
 		A.same({ ns.DeriveProgressValues(12000, 3000, 9000) }, { 6000, 6000 })
 		A.equal(ns.NormalizeParagonValue(4500, 2000, false), 500)
 		A.equal(ns.NormalizeParagonValue(4500, 2000, true), 2500)
+	end)
+
+	runner:test("CreateOverallOverlay keeps default thickness when it is the only visible layer", function()
+		local ctx = support.new_context(root, {
+			files = UI_TEST_FILES,
+		})
+		local ns = ctx.ns
+		install_status_bar_frame_factory(ctx.env)
+
+		local statusBar = new_status_bar(100)
+		local overlay = ns.UIHelpers.CreateOverallOverlay(statusBar)
+		ns.UIHelpers.UpdateOverallOverlay(statusBar, {
+			overallFraction = 0.5,
+		}, 0.5)
+
+		A.equal(overlay.verticalInset, ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.truthy(overlay.__shown)
+		A.equal(overlay.__points[1].point, "TOPLEFT")
+		A.equal(overlay.__points[1].y, -ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.equal(overlay.__points[2].point, "BOTTOMLEFT")
+		A.equal(overlay.__points[2].y, ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.near(overlay.__width, 49, 1e-6)
+	end)
+
+	runner:test("CreateOverallOverlay keeps full thickness behind the current band layer", function()
+		local ctx = support.new_context(root, {
+			files = UI_TEST_FILES,
+		})
+		local ns = ctx.ns
+		install_status_bar_frame_factory(ctx.env)
+
+		local statusBar = new_status_bar(100)
+		local source = {
+			standingId = 5,
+			currentValue = 5999,
+			maxValue = 6000,
+			overallFraction = ((5 - 1) + (5999 / 6000)) / ns.MAX_STANDARD_STANDING_ID,
+		}
+		local overlay = ns.UIHelpers.CreateOverallOverlay(statusBar)
+		ns.UIHelpers.UpdateOverallOverlay(statusBar, source, source.overallFraction)
+
+		A.equal(overlay.verticalInset, ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.truthy(overlay.__shown)
+		A.equal(overlay.__points[1].point, "TOPLEFT")
+		A.equal(overlay.__points[1].y, -ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.equal(overlay.__points[2].point, "BOTTOMLEFT")
+		A.equal(overlay.__points[2].y, ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.near(overlay.__width, 98 * source.overallFraction, 1e-6)
+	end)
+
+	runner:test("CreateBandOverlay shortens the top layer while spanning current-band progress", function()
+		local ctx = support.new_context(root, {
+			files = UI_TEST_FILES,
+		})
+		local ns = ctx.ns
+		local expectedTopInset = ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET
+			+ ((ns.UI_PROGRESS_BAR_LAYOUT.STACKED_VERTICAL_INSET - ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET) * 2)
+		install_status_bar_frame_factory(ctx.env)
+
+		local statusBar = new_status_bar(100)
+		local source = {
+			standingId = 5,
+			currentValue = 5999,
+			maxValue = 6000,
+			overallFraction = ((5 - 1) + (5999 / 6000)) / ns.MAX_STANDARD_STANDING_ID,
+		}
+		local overlay = ns.UIHelpers.CreateBandOverlay(statusBar)
+		ns.UIHelpers.UpdateBandOverlay(statusBar, source, source.overallFraction)
+
+		A.equal(overlay.verticalInset, ns.UI_PROGRESS_BAR_LAYOUT.STACKED_VERTICAL_INSET)
+		A.truthy(overlay.__shown)
+		A.equal(overlay.__points[1].point, "TOPLEFT")
+		A.equal(overlay.__points[1].x, ns.UI_PROGRESS_BAR_LAYOUT.HORIZONTAL_INSET)
+		A.equal(overlay.__points[1].y, -expectedTopInset)
+		A.equal(overlay.__points[2].point, "BOTTOMLEFT")
+		A.equal(overlay.__points[2].y, ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.truthy(overlay.__width > (98 * source.overallFraction))
+		A.near(overlay.__width, 98 * ns.GetBandOverlayFraction(source), 1e-6)
+	end)
+
+	runner:test("CreateParagonOverlay adds extra inset so the band underneath stays visible", function()
+		local ctx = support.new_context(root, {
+			files = UI_TEST_FILES,
+		})
+		local ns = ctx.ns
+		local expectedTopInset = ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET
+			+ ((ns.UI_PROGRESS_BAR_LAYOUT.STACKED_VERTICAL_INSET - ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET) * 2)
+		install_status_bar_frame_factory(ctx.env)
+
+		local statusBar = new_status_bar(100)
+		local overlay = ns.UIHelpers.CreateParagonOverlay(statusBar)
+		ns.UIHelpers.UpdateParagonOverlay(statusBar, {
+			hasParagon = true,
+			isMaxed = true,
+			paragonValue = 500,
+			paragonThreshold = 1000,
+		})
+
+		A.equal(overlay.verticalInset, ns.UI_PROGRESS_BAR_LAYOUT.STACKED_VERTICAL_INSET)
+		A.truthy(overlay.__shown)
+		A.equal(overlay.__points[1].point, "TOPLEFT")
+		A.equal(overlay.__points[1].y, -expectedTopInset)
+		A.equal(overlay.__points[2].point, "BOTTOMLEFT")
+		A.equal(overlay.__points[2].y, ns.UI_PROGRESS_BAR_LAYOUT.VERTICAL_INSET)
+		A.near(overlay.__width, 49, 1e-6)
 	end)
 
 	runner:test("normalizeFactionRow populates standard reputation display fields", function()

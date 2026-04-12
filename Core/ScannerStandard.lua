@@ -100,19 +100,7 @@ local function appendFallbackStandardRows(rows)
 		end
 	end
 
-	table.sort(unresolvedNames)
-	local unresolvedLabel = "-"
-	if #unresolvedNames > 0 then
-		local limit = math.max(1, ns.SafeNumber(ns.DEBUG_LOG_NAME_LIMIT, 12))
-		local display = {}
-		for index = 1, math.min(#unresolvedNames, limit) do
-			display[#display + 1] = unresolvedNames[index]
-		end
-		if #unresolvedNames > limit then
-			display[#display + 1] = string.format("+%d more", #unresolvedNames - limit)
-		end
-		unresolvedLabel = table.concat(display, ", ")
-	end
+	local unresolvedLabel = ns.FormatDebugNameList(unresolvedNames)
 
 	ns.DebugLog(string.format(
 		"Standard ID fallback considered=%d currentHistory=%d sharedHistory=%d added=%d unresolved=%d names=%s",

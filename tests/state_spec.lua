@@ -154,6 +154,16 @@ return function(runner, root)
 		A.equal(ns.FormatProgressValues(1234.4, 5678.8), "1234/5679")
 		A.equal(ns.FormatStatusWithProgress("Honored", "1500/6000"), "Honored: 1500/6000")
 		A.equal(ns.FormatStatusWithProgress("Renown: 5/10", "1500/2500"), "Renown: 5/10  1500/2500")
+		A.equal(ns.PickTableField({ a = false, b = 2 }, "missing", "a", "b"), false)
+		A.equal(ns.PickTableField(nil, "a"), nil)
+		A.equal(ns.FormatDebugNameList({ "Zulu", "Alpha" }), "Alpha, Zulu")
+		local previousNameLimit = ns.DEBUG_LOG_NAME_LIMIT
+		ns.DEBUG_LOG_NAME_LIMIT = 2
+		local truncatedNameList = ns.FormatDebugNameList({ "Zulu", "Alpha", "Beta" })
+		ns.DEBUG_LOG_NAME_LIMIT = previousNameLimit
+		A.equal(truncatedNameList, "Alpha, Beta, +1 more")
+		A.equal(ns.TEXT.PROGRESS_BAR_TOOLTIP_OVERALL, "Orange: Overall progress toward finishing the reputation.")
+		A.equal(ns.TEXT.PROGRESS_BAR_TOOLTIP_BAND, "Blue: Progress within the current rank or renown level.")
 		A.equal(ns.StandingLabel(8), "Exalted")
 		A.equal(ns.RepTypeLabel(ns.REP_TYPE.FRIENDSHIP, false, {}), ns.TEXT.FRIENDSHIP)
 		A.equal(ns.RepTypeLabel(ns.REP_TYPE.MAJOR, true, { renownMaxLevel = 10 }), ns.TEXT.RENOWN .. ns.TEXT.PARAGON_SUFFIX)

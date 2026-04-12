@@ -1,24 +1,30 @@
 # Changelog
 
+## 2.0.4
+
+- Improved reputation progress bars so overall progress and current-rank
+  progress are easier to tell apart at a glance.
+- Cleaned up layered progress-bar visuals for factions that show more than one
+  progress band.
+
 ## 2.0.3
 
-- Deferred non-immediate reputation refresh attempts during combat and collapsed
-  them into a single follow-up scan after combat.
-- Paused frame-sliced background reputation refresh batches during combat and
-  resumed them only after combat ended.
+- Improved reputation refresh behavior during combat so delayed updates catch
+  up more reliably afterward.
+- Smoothed out background refresh work to reduce spikes during larger update
+  bursts.
 
 ## 2.0.2
 
-- Split delayed known-reputation refreshes into small batches so quest turn-in
-  and `UPDATE_FACTION` follow-up scans do less work per frame.
-- Kept immediate and manual scans synchronous while moving background refresh
-  work onto a frame-sliced path.
+- Improved follow-up refreshes after quest turn-ins and other reputation
+  updates.
+- Kept manual scans responsive while background updates do less work at once.
 
 ## 2.0.1
 
-- Improved reputation progress and snapshot consistency across standard,
-  renown, friendship, and paragon factions.
-- Reduced unnecessary background debug work in the public build.
+- Improved progress tracking across standard reputation, renown, friendship,
+  and paragon factions.
+- Reduced unnecessary background work in the public release.
 
 ## 2.0.0
 
@@ -27,6 +33,4 @@
 - Restored the faction hierarchy handling for grouped reputations such as
   `The Severed Threads` and `The Cartels of Undermine`.
 - Added an in-game addon-list icon and a movable minimap icon.
-- Kept local developer debug access in source installs while removing the
-  normal-user debug entry points from the public release build.
 - Prepared the addon tree for a first public CurseForge release.

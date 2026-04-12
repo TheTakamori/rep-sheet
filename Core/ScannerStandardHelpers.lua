@@ -1,19 +1,7 @@
 RepSheet = RepSheet or {}
 local ns = RepSheet
 local helpers = ns.ScannerStandardHelpers
-
-local function pick(data, ...)
-	if type(data) ~= "table" then
-		return nil
-	end
-	for index = 1, select("#", ...) do
-		local key = select(index, ...)
-		if data[key] ~= nil then
-			return data[key]
-		end
-	end
-	return nil
-end
+local pick = ns.PickTableField
 
 local function appendUniqueHeaderPath(path, value)
 	value = ns.NormalizeText(value)

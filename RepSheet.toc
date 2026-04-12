@@ -2,7 +2,7 @@
 ## Title: Rep Sheet
 ## Notes: Browse reputation progress across your alts with /reps.
 ## Author: Takamori
-## Version: 2.0.3
+## Version: 2.0.4
 ## IconTexture: Interface\AddOns\RepSheet\Media\Icons\RepSheetAddonIcon
 ## SavedVariables: RepSheetDB
 
@@ -35,6 +35,7 @@ Core/FactionTreeView.lua
 Core/OpenFactionUI.lua
 UI/UIConstants.lua
 UI/UIHelpers.lua
+UI/UIProgressBar.lua
 UI/UIWidgets.lua
 UI/MinimapButton.lua
 UI/ListRow.lua
