@@ -4,6 +4,7 @@ local colors = ns.UI_COLORS
 local paneLayout = ns.UI_CHARACTER_PANE_LAYOUT
 local rowLayout = ns.UI_DETAIL_ROW_LAYOUT
 local ui = ns.UIHelpers
+local widgets = ns.UIWidgets
 
 local function scrollChildWidth()
 	return ns.UI_PANE_WIDTH - paneLayout.SCROLL_LEFT + paneLayout.SCROLL_RIGHT
@@ -36,24 +37,14 @@ local function createDetailRow(parent, index)
 	row.meta:SetJustifyH("LEFT")
 	ui.ApplyTextColor(row.meta, colors.TEXT_INFO)
 
-	row.progressBar = CreateFrame("StatusBar", nil, row)
-	row.progressBar:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", rowLayout.PROGRESS_LEFT, rowLayout.PROGRESS_BOTTOM)
-	row.progressBar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", rowLayout.PROGRESS_RIGHT, rowLayout.PROGRESS_BOTTOM)
-	row.progressBar:SetHeight(rowLayout.PROGRESS_HEIGHT)
-	row.progressBar:SetStatusBarTexture(ns.UI_TEXTURES.STATUS_BAR)
-	row.progressBar:SetMinMaxValues(0, 1)
-	row.progressBar.bg = row.progressBar:CreateTexture(nil, "BACKGROUND")
-	row.progressBar.bg:SetAllPoints()
-	row.progressBar.bg:SetColorTexture(
-		colors.STATUS_BAR_BG_SOLID[1],
-		colors.STATUS_BAR_BG_SOLID[2],
-		colors.STATUS_BAR_BG_SOLID[3],
-		colors.STATUS_BAR_BG_SOLID[4]
-	)
-	ui.CreateBandOverlay(row.progressBar)
-	ui.CreateParagonOverlay(row.progressBar)
-	ui.CreateOverallOverlay(row.progressBar)
-	ui.AttachProgressBarTooltip(row.progressBar)
+	row.progressBar = widgets.CreateProgressBar(row, {
+		leftX = rowLayout.PROGRESS_LEFT,
+		leftY = rowLayout.PROGRESS_BOTTOM,
+		rightX = rowLayout.PROGRESS_RIGHT,
+		rightY = rowLayout.PROGRESS_BOTTOM,
+		height = rowLayout.PROGRESS_HEIGHT,
+		backgroundColor = colors.STATUS_BAR_BG_SOLID,
+	})
 
 	return row
 end
@@ -148,9 +139,11 @@ function ns.UI_CreateCharacterPane(parent)
 	pane.scroll:SetPoint("TOPLEFT", pane, "TOPLEFT", paneLayout.SCROLL_LEFT, paneLayout.SCROLL_TOP)
 	pane.scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", paneLayout.SCROLL_RIGHT, paneLayout.SCROLL_BOTTOM)
 
-	pane.scrollChild = CreateFrame("Frame", nil, pane.scroll)
-	pane.scrollChild:SetSize(scrollChildWidth(), paneLayout.SCROLL_CHILD_MIN_HEIGHT)
-	pane.scroll:SetScrollChild(pane.scrollChild)
+	pane.scrollChild = widgets.CreateScrollChild(
+		pane.scroll,
+		scrollChildWidth(),
+		paneLayout.SCROLL_CHILD_MIN_HEIGHT
+	)
 
 	pane.emptyText = pane.scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	pane.emptyText:SetPoint("TOPLEFT", pane.scrollChild, "TOPLEFT", paneLayout.EMPTY_LEFT, paneLayout.EMPTY_TOP)

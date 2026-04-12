@@ -35,6 +35,17 @@ function ns.NormalizeFactionIDList(factionIDs)
 	return ids
 end
 
+function ns.MergeFactionIDLists(...)
+	local merged = {}
+	for index = 1, select("#", ...) do
+		local ids = select(index, ...)
+		for listIndex = 1, #(type(ids) == "table" and ids or {}) do
+			merged[#merged + 1] = ids[listIndex]
+		end
+	end
+	return ns.NormalizeFactionIDList(merged)
+end
+
 function ns.FormatPercent(fraction)
 	fraction = ns.SafeNumber(fraction, 0)
 	return string.format("%d%%", ns.Round(ns.Clamp(fraction, 0, 1) * 100))
@@ -59,6 +70,28 @@ function ns.FormatStatusWithProgress(statusText, progressText)
 		return string.format("%s  %s", statusText, progressText)
 	end
 	return string.format("%s: %s", statusText, progressText)
+end
+
+function ns.DeriveProgressValues(currentStanding, bottomValue, topValue)
+	currentStanding = ns.SafeNumber(currentStanding, 0)
+	bottomValue = ns.SafeNumber(bottomValue, 0)
+	topValue = ns.SafeNumber(topValue, 0)
+
+	local maxValue = topValue - bottomValue
+	if maxValue <= 0 then
+		return math.max(0, currentStanding), 0
+	end
+
+	local currentValue
+	if currentStanding >= bottomValue and currentStanding <= topValue then
+		currentValue = currentStanding - bottomValue
+	elseif currentStanding >= 0 and currentStanding <= maxValue then
+		currentValue = currentStanding
+	else
+		currentValue = currentStanding - bottomValue
+	end
+
+	return ns.Clamp(currentValue, 0, maxValue), maxValue
 end
 
 function ns.NormalizeParagonValue(currentValue, threshold, rewardPending)

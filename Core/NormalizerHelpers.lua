@@ -2,11 +2,27 @@ RepSheet = RepSheet or {}
 local ns = RepSheet
 local helpers = ns.NormalizerHelpers
 
-local function buildFactionKey(row)
-	if row.factionID and row.factionID > 0 then
-		return tostring(row.factionID)
+local function buildFactionKey(factionID, name)
+	factionID = ns.SafeNumber(factionID, 0)
+	if factionID > 0 then
+		return tostring(factionID)
 	end
-	return ns.NormalizeSearchText(row.name)
+	return ns.NormalizeSearchText(name)
+end
+
+local function normalizeHeaderPath(headerPath)
+	if type(headerPath) ~= "table" then
+		return {}
+	end
+
+	local normalized = {}
+	for index = 1, #headerPath do
+		local headerName = ns.NormalizeText(headerPath[index])
+		if headerName ~= "" then
+			normalized[#normalized + 1] = headerName
+		end
+	end
+	return normalized
 end
 
 local function resolveStandingText(row)
@@ -160,8 +176,14 @@ end
 
 local function chooseNormalizedValues(row, special)
 	local repType = special.repType or row.repType or ns.REP_TYPE.STANDARD
-	local currentValue = ns.SafeNumber(row.currentValue, 0)
-	local maxValue = ns.SafeNumber(row.maxValue, 0)
+	local currentValue = row.currentValue
+	local maxValue = row.maxValue
+	if currentValue == nil or maxValue == nil then
+		currentValue, maxValue = ns.DeriveProgressValues(row.currentStanding, row.bottomValue, row.topValue)
+	else
+		currentValue = ns.SafeNumber(currentValue, 0)
+		maxValue = ns.SafeNumber(maxValue, 0)
+	end
 
 	if repType == ns.REP_TYPE.MAJOR then
 		local renownMax = ns.SafeNumber(special.renownMaxLevel, 0)
@@ -271,16 +293,45 @@ local function buildProgressText(currentValue, maxValue, special, repType, isMax
 	return progressText
 end
 
+local function runtimeFieldsMissing(entry)
+	if ns.SafeString(entry.expansionName) == "" then
+		return true
+	end
+	if ns.SafeString(entry.repTypeLabel) == "" then
+		return true
+	end
+	if ns.SafeString(entry.rankText) == "" and ns.SafeString(entry.progressText) == "" then
+		return true
+	end
+	if entry.overallFraction == nil or entry.remainingFraction == nil or entry.isMaxed == nil then
+		return true
+	end
+	if ns.SafeString(entry.sortName) == "" then
+		return true
+	end
+	if ns.SafeString(entry.icon) == "" then
+		return true
+	end
+	if ns.SafeString(entry.searchText) == "" then
+		return true
+	end
+	return false
+end
+
 function helpers.ApplyRuntimeReputationFields(entry)
 	if type(entry) ~= "table" then
 		return
 	end
 
+	local normalizedName = ns.NormalizeText(entry.name)
+	local normalizedDescription = ns.NormalizeText(entry.description)
+	local normalizedHeaderPath = normalizeHeaderPath(entry.headerPath)
 	local expansionKey = ns.SafeString(entry.expansionKey, ns.ALL_EXPANSIONS_KEY)
 	local row = {
-		factionKey = entry.factionKey,
+		factionKey = buildFactionKey(entry.factionID, normalizedName),
 		factionID = entry.factionID,
-		name = entry.name,
+		name = normalizedName,
+		description = normalizedDescription,
 		standingId = ns.SafeNumber(entry.standingId, 0),
 		standingText = resolveStandingText(entry),
 		currentValue = entry.currentValue,
@@ -291,7 +342,7 @@ function helpers.ApplyRuntimeReputationFields(entry)
 		isAccountWide = entry.isAccountWide == true,
 		isWatched = entry.isWatched == true,
 		isChild = entry.isChild == true,
-		headerPath = type(entry.headerPath) == "table" and ns.CopyArray(entry.headerPath) or {},
+		headerPath = normalizedHeaderPath,
 		expansionKey = expansionKey,
 		repType = entry.repType,
 		majorFactionID = entry.majorFactionID,
@@ -310,12 +361,15 @@ function helpers.ApplyRuntimeReputationFields(entry)
 		renownMaxLevel = ns.SafeNumber(entry.renownMaxLevel, 0),
 		friendCurrentRank = ns.SafeNumber(entry.friendCurrentRank, 0),
 		friendMaxRank = ns.SafeNumber(entry.friendMaxRank, 0),
-		friendTextLevel = ns.SafeString(entry.friendTextLevel),
+		friendTextLevel = ns.NormalizeText(entry.friendTextLevel),
 	}
 	local repType, currentValue, maxValue, isMaxed = chooseNormalizedValues(row, special)
 	local showParagonLabel = shouldShowParagonProgress(repType, special, isMaxed)
 	local overallFraction = deriveOverallFraction(repType, row, special, currentValue, maxValue, isMaxed)
 
+	entry.factionKey = row.factionKey
+	entry.name = normalizedName
+	entry.description = normalizedDescription
 	entry.repType = repType
 	entry.expansionKey = expansionKey
 	entry.expansionName = ns.ExpansionLabelForKey(expansionKey)
@@ -328,13 +382,46 @@ function helpers.ApplyRuntimeReputationFields(entry)
 	entry.isMaxed = isMaxed
 	entry.overallFraction = overallFraction
 	entry.remainingFraction = isMaxed and 0 or (maxValue > 0 and ns.Clamp((maxValue - currentValue) / maxValue, 0, 1) or (1 - overallFraction))
+	entry.headerPath = row.headerPath
 	entry.headerLabel = type(row.headerPath) == "table" and table.concat(row.headerPath, " / ") or ""
 	entry.icon = ns.IconForRepType(repType)
+	entry.friendTextLevel = special.friendTextLevel
+	entry.sortName = ns.NormalizeSearchText(normalizedName)
+	entry.searchText = ns.NormalizeSearchText(string.format(
+		"%s %s %s %s",
+		entry.name or "",
+		entry.expansionName or "",
+		entry.repTypeLabel or "",
+		entry.rankText or ""
+	))
+end
+
+function ns.BackfillStoredCharacterReputations(character)
+	if type(character) ~= "table" or type(character.reputations) ~= "table" then
+		return
+	end
+	for factionKey, reputation in pairs(character.reputations) do
+		if type(reputation) == "table" then
+			if ns.SafeString(reputation.factionKey) == "" then
+				reputation.factionKey = factionKey
+			end
+			if runtimeFieldsMissing(reputation) then
+				helpers.ApplyRuntimeReputationFields(reputation)
+			end
+		end
+	end
 end
 
 function helpers.normalizeFactionRow(row, special)
 	special = type(special) == "table" and special or {}
-	local factionKey = buildFactionKey(row)
+	local normalizedName = ns.NormalizeText(row.name)
+	if normalizedName == "" then
+		return nil
+	end
+
+	local normalizedDescription = ns.NormalizeText(row.description)
+	local normalizedHeaderPath = normalizeHeaderPath(row.headerPath)
+	local factionKey = buildFactionKey(row.factionID, normalizedName)
 	if factionKey == "" then
 		return nil
 	end
@@ -353,8 +440,8 @@ function helpers.normalizeFactionRow(row, special)
 	local normalized = {
 		factionKey = factionKey,
 		factionID = row.factionID,
-		name = row.name,
-		description = row.description,
+		name = normalizedName,
+		description = normalizedDescription,
 		expansionKey = expansionKey,
 		expansionName = ns.ExpansionLabelForKey(expansionKey),
 		repType = repType,
@@ -371,8 +458,8 @@ function helpers.normalizeFactionRow(row, special)
 		isAccountWide = special.isAccountWide == true or row.isAccountWide == true,
 		isChild = row.isChild == true,
 		isWatched = row.isWatched == true,
-		headerPath = row.headerPath,
-		headerLabel = type(row.headerPath) == "table" and table.concat(row.headerPath, " / ") or "",
+		headerPath = normalizedHeaderPath,
+		headerLabel = type(normalizedHeaderPath) == "table" and table.concat(normalizedHeaderPath, " / ") or "",
 		icon = row.icon or ns.IconForRepType(repType),
 		hasParagon = special.hasParagon == true,
 		paragonValue = ns.SafeNumber(special.paragonValue, 0),
@@ -385,10 +472,11 @@ function helpers.normalizeFactionRow(row, special)
 		renownMaxLevel = ns.SafeNumber(special.renownMaxLevel, 0),
 		friendCurrentRank = ns.SafeNumber(special.friendCurrentRank, 0),
 		friendMaxRank = ns.SafeNumber(special.friendMaxRank, 0),
-		friendTextLevel = ns.SafeString(special.friendTextLevel),
+		friendTextLevel = ns.NormalizeText(special.friendTextLevel),
+		sortName = ns.NormalizeSearchText(normalizedName),
 		searchText = ns.NormalizeSearchText(string.format(
 			"%s %s %s %s",
-			row.name or "",
+			normalizedName,
 			ns.ExpansionLabelForKey(expansionKey),
 			ns.RepTypeLabel(repType, showParagonLabel, special),
 			rankText

@@ -117,28 +117,6 @@ function helpers.getFactionDataByFactionID(factionID)
 	return buildFactionDataFromTable(data, nil)
 end
 
-function helpers.deriveProgress(currentStanding, bottomValue, topValue)
-	currentStanding = ns.SafeNumber(currentStanding, 0)
-	bottomValue = ns.SafeNumber(bottomValue, 0)
-	topValue = ns.SafeNumber(topValue, 0)
-
-	local maxValue = topValue - bottomValue
-	if maxValue <= 0 then
-		return math.max(0, currentStanding), 0
-	end
-
-	local currentValue
-	if currentStanding >= bottomValue and currentStanding <= topValue then
-		currentValue = currentStanding - bottomValue
-	elseif currentStanding >= 0 and currentStanding <= maxValue then
-		currentValue = currentStanding
-	else
-		currentValue = currentStanding - bottomValue
-	end
-
-	return ns.Clamp(currentValue, 0, maxValue), maxValue
-end
-
 function helpers.currentHeaderPath(expansionHeader, sectionHeader, childHeader)
 	local path = {}
 	appendUniqueHeaderPath(path, expansionHeader)

@@ -150,10 +150,10 @@ local function extractFriendshipFaction(row)
 	return {
 		repType = ns.REP_TYPE.FRIENDSHIP,
 		friendID = friendID,
-		friendName = ns.NormalizeText(friendName),
-		friendText = ns.NormalizeText(friendText),
+		friendName = friendName,
+		friendText = friendText,
 		friendTexture = friendTexture,
-		friendTextLevel = ns.NormalizeText(friendTextLevel),
+		friendTextLevel = friendTextLevel,
 		friendCurrentRank = currentRank,
 		friendMaxRank = maxRank,
 		currentValue = ns.Clamp(currentValue, 0, maxValue > 0 and maxValue or currentValue),
@@ -197,12 +197,32 @@ local function extractNeighborhood(row)
 	return nil
 end
 
-function ns.ScanSpecialReputationData(scanRows)
-	local out = {}
-	local majorCount = 0
-	local friendshipCount = 0
-	local paragonCount = 0
-	local neighborhoodCount = 0
+local function ensureSpecialScanSummary(summary)
+	summary = type(summary) == "table" and summary or {}
+	return {
+		major = ns.SafeNumber(summary.major, 0),
+		friendship = ns.SafeNumber(summary.friendship, 0),
+		paragon = ns.SafeNumber(summary.paragon, 0),
+		neighborhood = ns.SafeNumber(summary.neighborhood, 0),
+	}
+end
+
+function ns.LogSpecialReputationSummary(summary)
+	local totals = ensureSpecialScanSummary(summary)
+	local state = ns.PlayerStateEnsure()
+	state.lastSpecialScanSummary = totals
+	ns.DebugLog(string.format(
+		"Special scan enriched %d major, %d friendship, %d paragon, %d neighborhood factions.",
+		totals.major,
+		totals.friendship,
+		totals.paragon,
+		totals.neighborhood
+	))
+end
+
+function ns.AppendSpecialReputationData(scanRows, out, summary)
+	out = type(out) == "table" and out or {}
+	summary = ensureSpecialScanSummary(summary)
 
 	for index = 1, #(scanRows or {}) do
 		local row = scanRows[index]
@@ -214,7 +234,7 @@ function ns.ScanSpecialReputationData(scanRows)
 				for key, value in pairs(neighborhood) do
 					merged[key] = value
 				end
-				neighborhoodCount = neighborhoodCount + 1
+				summary.neighborhood = summary.neighborhood + 1
 			end
 
 			local friendship = extractFriendshipFaction(row)
@@ -222,7 +242,7 @@ function ns.ScanSpecialReputationData(scanRows)
 				for key, value in pairs(friendship) do
 					merged[key] = value
 				end
-				friendshipCount = friendshipCount + 1
+				summary.friendship = summary.friendship + 1
 			end
 
 			local paragon = extractParagon(row)
@@ -230,7 +250,7 @@ function ns.ScanSpecialReputationData(scanRows)
 				for key, value in pairs(paragon) do
 					merged[key] = value
 				end
-				paragonCount = paragonCount + 1
+				summary.paragon = summary.paragon + 1
 			end
 
 			-- Major last so repType / renown fields win over friendship for renown factions (warband rows often match both APIs).
@@ -239,7 +259,7 @@ function ns.ScanSpecialReputationData(scanRows)
 				for key, value in pairs(major) do
 					merged[key] = value
 				end
-				majorCount = majorCount + 1
+				summary.major = summary.major + 1
 			end
 
 			if ns.ShouldTraceReputationRow(row, merged) then
@@ -270,19 +290,11 @@ function ns.ScanSpecialReputationData(scanRows)
 		end
 	end
 
-	local state = ns.PlayerStateEnsure()
-	state.lastSpecialScanSummary = {
-		major = majorCount,
-		friendship = friendshipCount,
-		paragon = paragonCount,
-		neighborhood = neighborhoodCount,
-	}
-	ns.DebugLog(string.format(
-		"Special scan enriched %d major, %d friendship, %d paragon, %d neighborhood factions.",
-		majorCount,
-		friendshipCount,
-		paragonCount,
-		neighborhoodCount
-	))
+	return out, summary
+end
+
+function ns.ScanSpecialReputationData(scanRows)
+	local out, summary = ns.AppendSpecialReputationData(scanRows, {}, nil)
+	ns.LogSpecialReputationSummary(summary)
 	return out
 end

@@ -1,6 +1,16 @@
 RepSheet = RepSheet or {}
 local ns = RepSheet
 
+local function buildVisibleRow(bucket, hasChildren, isCollapsed)
+	local row = {}
+	for key, value in pairs(bucket or {}) do
+		row[key] = value
+	end
+	row.treeHasChildren = hasChildren == true
+	row.treeCollapsed = isCollapsed == true
+	return row
+end
+
 function ns.GetFactionParentChain(factionKey)
 	local index = ns.BuildFactionIndex()
 	local bucket = index.byKey[factionKey]
@@ -115,10 +125,9 @@ function ns.GetVisibleFactionRows()
 	local function appendBranch(bucket)
 		local children = collectVisibleChildren(bucket)
 		local hasChildren = #children > 0
-		bucket.treeHasChildren = hasChildren
-		bucket.treeCollapsed = hasChildren and ns.IsFactionCollapsed(bucket.factionKey) and not revealSearchMatches
-		rows[#rows + 1] = bucket
-		if hasChildren and not bucket.treeCollapsed then
+		local isCollapsed = hasChildren and ns.IsFactionCollapsed(bucket.factionKey) and not revealSearchMatches
+		rows[#rows + 1] = buildVisibleRow(bucket, hasChildren, isCollapsed)
+		if hasChildren and not isCollapsed then
 			for childIndex = 1, #children do
 				appendBranch(children[childIndex])
 			end

@@ -36,16 +36,20 @@ automatically.
 
 - A character must log in with the addon installed before that character can
   appear in comparisons.
-- The first CurseForge release will ship without the local developer debug
-  entry points that are available in the source install.
+- Public release builds do not expose the local developer debug entry points
+  that are available in the source install.
 
 ## License
 
 This project is released as `All Rights Reserved`.
 
-## Release Prep
+## Project Metadata
 
-The following metadata still needs final values before publication:
+The source metadata and release notes in this tree are current through
+`2.0.3`.
+
+The following public listing assets still need final values when the
+CurseForge project page is refreshed:
 
 - Project page links for source, issues, and support
 - Project logo and screenshots

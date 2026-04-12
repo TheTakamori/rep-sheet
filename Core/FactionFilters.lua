@@ -44,8 +44,14 @@ function filtersApi.CompareBucketsCore(sortKey, a, b)
 		end
 	end
 
-	local nameA = ns.NormalizeSearchText(a.name)
-	local nameB = ns.NormalizeSearchText(b.name)
+	local nameA = ns.SafeString(a.sortName)
+	if nameA == "" then
+		nameA = ns.NormalizeSearchText(a.name)
+	end
+	local nameB = ns.SafeString(b.sortName)
+	if nameB == "" then
+		nameB = ns.NormalizeSearchText(b.name)
+	end
 	if nameA ~= nameB then
 		return nameA < nameB
 	end

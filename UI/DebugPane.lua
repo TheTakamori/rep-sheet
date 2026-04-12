@@ -3,6 +3,7 @@ local ns = RepSheet
 local colors = ns.UI_COLORS
 local layout = ns.UI_DEBUG_PANE_LAYOUT
 local ui = ns.UIHelpers
+local widgets = ns.UIWidgets
 local CLEAR_ALL_DATA_DIALOG_KEY = "REPSHEET_CLEAR_ALL_DATA_CONFIRM"
 
 local function paneWidth()
@@ -113,12 +114,14 @@ function ns.UI_CreateDebugPane(parent)
 	pane.scroll:SetScript("OnMouseWheel", function(self, delta)
 		local current = self:GetVerticalScroll() or 0
 		local range = self:GetVerticalScrollRange() or 0
-		self:SetVerticalScroll(ns.Clamp(current - delta * 32, 0, range))
+		self:SetVerticalScroll(ns.Clamp(current - delta * ns.UI_DEBUG_SCROLL_STEP, 0, range))
 	end)
 
-	pane.scrollChild = CreateFrame("Frame", nil, pane.scroll)
-	pane.scrollChild:SetSize(scrollChildWidth(), layout.SCROLL_CHILD_MIN_HEIGHT)
-	pane.scroll:SetScrollChild(pane.scrollChild)
+	pane.scrollChild = widgets.CreateScrollChild(
+		pane.scroll,
+		scrollChildWidth(),
+		layout.SCROLL_CHILD_MIN_HEIGHT
+	)
 
 	pane.measureText = pane:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
 	pane.measureText:SetPoint("TOPLEFT", pane, "BOTTOMLEFT", 0, -1024)
@@ -167,11 +170,7 @@ function ns.UI_CreateDebugPane(parent)
 	function pane:RunDebugScan()
 		ns.ClearDebugLog()
 		ns.DebugLog("Debug scan requested from debug page.")
-		if ns.RequestReputationScan then
-			ns.RequestReputationScan(ns.SCAN_REASON.MANUAL_REFRESH, true)
-		else
-			ns.ScanCurrentCharacter(ns.SCAN_REASON.MANUAL_REFRESH)
-		end
+		widgets.RequestManualReputationScan()
 	end
 
 	function pane:ClearAllData()

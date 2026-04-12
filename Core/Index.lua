@@ -1,12 +1,12 @@
 RepSheet = RepSheet or {}
 local ns = RepSheet
 local tree = ns.FactionTree
-local helpers = ns.NormalizerHelpers
 
 local function buildDetailEntry(character, rep)
 	local entry = {
 		characterKey = character.characterKey,
 		characterName = character.name,
+		characterSortName = ns.NormalizeSearchText(ns.FormatCharacterName(character)),
 		realm = character.realm,
 		classFile = character.classFile,
 		className = character.className,
@@ -14,20 +14,33 @@ local function buildDetailEntry(character, rep)
 		factionKey = rep.factionKey,
 		factionID = rep.factionID,
 		name = rep.name,
+		description = rep.description,
 		expansionKey = rep.expansionKey,
+		expansionName = rep.expansionName,
 		repType = rep.repType,
+		repTypeLabel = rep.repTypeLabel,
 		standingId = rep.standingId,
+		standingText = rep.standingText,
+		rankText = rep.rankText,
+		progressText = rep.progressText,
 		currentValue = rep.currentValue,
 		maxValue = rep.maxValue,
 		currentStanding = rep.currentStanding,
 		bottomValue = rep.bottomValue,
 		topValue = rep.topValue,
+		overallFraction = rep.overallFraction,
+		remainingFraction = rep.remainingFraction,
+		isMaxed = rep.isMaxed,
 		isAccountWide = rep.isAccountWide,
 		isWatched = rep.isWatched,
 		atWar = rep.atWar,
 		canToggleAtWar = rep.canToggleAtWar,
 		isChild = rep.isChild,
 		headerPath = rep.headerPath,
+		headerLabel = rep.headerLabel,
+		sortName = rep.sortName,
+		searchText = rep.searchText,
+		icon = rep.icon,
 		hasParagon = rep.hasParagon,
 		renownLevel = rep.renownLevel,
 		renownMaxLevel = rep.renownMaxLevel,
@@ -39,7 +52,6 @@ local function buildDetailEntry(character, rep)
 		paragonRewardPending = rep.paragonRewardPending,
 		majorFactionID = rep.majorFactionID,
 	}
-	helpers.ApplyRuntimeReputationFields(entry)
 	return entry
 end
 
@@ -87,8 +99,14 @@ local function sortDetailEntriesByProgressDesc(entries)
 			return scoreA > scoreB
 		end
 
-		local nameA = ns.NormalizeSearchText(ns.FormatCharacterName(a))
-		local nameB = ns.NormalizeSearchText(ns.FormatCharacterName(b))
+		local nameA = ns.SafeString(a.characterSortName)
+		if nameA == "" then
+			nameA = ns.NormalizeSearchText(ns.FormatCharacterName(a))
+		end
+		local nameB = ns.SafeString(b.characterSortName)
+		if nameB == "" then
+			nameB = ns.NormalizeSearchText(ns.FormatCharacterName(b))
+		end
 		return nameA < nameB
 	end)
 end
@@ -154,6 +172,7 @@ function ns.BuildFactionIndex()
 					expansionName = entry.expansionName,
 					repType = entry.repType,
 					repTypeLabel = entry.repTypeLabel,
+					sortName = entry.sortName,
 					headerPath = ns.CopyArray(entry.headerPath),
 					headerLabel = entry.headerLabel,
 					icon = entry.icon,
@@ -196,6 +215,7 @@ function ns.BuildFactionIndex()
 				bucket.expansionName = entry.expansionName
 				bucket.repType = entry.repType
 				bucket.repTypeLabel = entry.repTypeLabel
+				bucket.sortName = entry.sortName
 				bucket.icon = entry.icon
 				bucket.headerPathUpdatedAt = pathUpdatedAt
 			end
@@ -209,7 +229,15 @@ function ns.BuildFactionIndex()
 	tree.LinkBucketRelationships(all, byFactionKey)
 
 	table.sort(all, function(a, b)
-		return ns.NormalizeSearchText(a.name) < ns.NormalizeSearchText(b.name)
+		local nameA = ns.SafeString(a.sortName)
+		if nameA == "" then
+			nameA = ns.NormalizeSearchText(a.name)
+		end
+		local nameB = ns.SafeString(b.sortName)
+		if nameB == "" then
+			nameB = ns.NormalizeSearchText(b.name)
+		end
+		return nameA < nameB
 	end)
 
 	runtime.indexDirty = false

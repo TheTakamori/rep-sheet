@@ -26,49 +26,5 @@ for index = 1, #list do
 	byKey[entry.key] = entry
 	orderByKey[entry.key] = index
 end
-
-function ns.GetExpansionByKey(key)
-	return byKey[key] or byKey.all
-end
-
-function ns.ExpansionLabelForKey(key)
-	return ns.GetExpansionByKey(key).name
-end
-
-function ns.ExpansionSortValue(key)
-	return orderByKey[key] or math.huge
-end
-
-function ns.ExpansionKeyFromGameExp(gameExp)
-	if gameExp == nil then
-		return nil
-	end
-	for i = 1, #list do
-		local entry = list[i]
-		if entry.gameExp ~= nil and entry.gameExp == gameExp then
-			return entry.key
-		end
-	end
-	return nil
-end
-
-function ns.ResolveExpansionKeyFromHeader(headerName)
-	headerName = ns.NormalizeSearchText(headerName)
-	if headerName == "" then
-		return nil
-	end
-	return ns.EXPANSION_HEADER_ALIASES[headerName]
-end
-
-function ns.ResolveExpansionKeyFromHeaders(headerPath)
-	if type(headerPath) ~= "table" then
-		return nil
-	end
-	for index = #headerPath, 1, -1 do
-		local key = ns.ResolveExpansionKeyFromHeader(headerPath[index])
-		if key and key ~= ns.ALL_EXPANSIONS_KEY then
-			return key
-		end
-	end
-	return nil
-end
+ns.ExpansionDataByKey = byKey
+ns.ExpansionOrderByKey = orderByKey

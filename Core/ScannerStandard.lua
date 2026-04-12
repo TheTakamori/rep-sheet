@@ -2,16 +2,13 @@ RepSheet = RepSheet or {}
 local ns = RepSheet
 local helpers = ns.ScannerStandardHelpers
 
-local function buildStandardScanRow(row, headerPath, expansionKey)
-	return {
+local function buildStandardScanRow(row, headerPath, expansionHint)
+	local scanRow = {
 		factionKey = row.factionID and tostring(row.factionID) or ns.NormalizeSearchText(row.name),
 		factionID = row.factionID,
-		name = ns.NormalizeText(row.name),
-		description = ns.NormalizeText(row.description),
+		name = row.name,
+		description = row.description,
 		standingId = row.standingId,
-		standingText = ns.StandingLabel(row.standingId),
-		currentValue = select(1, helpers.deriveProgress(row.currentStanding, row.currentReactionThreshold, row.nextReactionThreshold)),
-		maxValue = select(2, helpers.deriveProgress(row.currentStanding, row.currentReactionThreshold, row.nextReactionThreshold)),
 		currentStanding = ns.SafeNumber(row.currentStanding, 0),
 		bottomValue = ns.SafeNumber(row.currentReactionThreshold, 0),
 		topValue = ns.SafeNumber(row.nextReactionThreshold, 0),
@@ -21,18 +18,20 @@ local function buildStandardScanRow(row, headerPath, expansionKey)
 		canToggleAtWar = row.canToggleAtWar == true,
 		isChild = row.isChild == true,
 		headerPath = headerPath,
-		expansionKey = expansionKey,
 		expansionID = row.expansionID,
-		repType = ns.REP_TYPE.STANDARD,
 		majorFactionID = row.majorFactionID or row.renownFactionID,
-		icon = ns.IconForRepType(ns.REP_TYPE.STANDARD),
 	}
+	if ns.SafeString(expansionHint) ~= "" then
+		scanRow.expansionKey = expansionHint
+	end
+	return scanRow
 end
 
 local function traceStandardScanRow(prefix, scanRow)
 	if not ns.ShouldTraceReputationRow(scanRow) then
 		return
 	end
+	local currentValue, maxValue = ns.DeriveProgressValues(scanRow.currentStanding, scanRow.bottomValue, scanRow.topValue)
 	ns.DebugLog(string.format(
 		'%s name="%s" faction=%s major=%s accountWide=%s standing=%s values=%s/%s current=%s thresholds=%s..%s headers=%s',
 		prefix,
@@ -40,9 +39,9 @@ local function traceStandardScanRow(prefix, scanRow)
 		ns.DebugValueText(scanRow.factionID),
 		ns.DebugValueText(scanRow.majorFactionID),
 		ns.DebugValueText(scanRow.isAccountWide),
-		ns.DebugValueText(scanRow.standingText),
-		ns.DebugValueText(scanRow.currentValue),
-		ns.DebugValueText(scanRow.maxValue),
+		ns.DebugValueText(scanRow.standingId > 0 and ns.StandingLabel(scanRow.standingId) or nil),
+		ns.DebugValueText(currentValue),
+		ns.DebugValueText(maxValue),
 		ns.DebugValueText(scanRow.currentStanding),
 		ns.DebugValueText(scanRow.bottomValue),
 		ns.DebugValueText(scanRow.topValue),
@@ -58,14 +57,7 @@ function ns.GetStandardScanRowByFactionID(factionID, knownMeta)
 	end
 
 	local headerPath = type(knownMeta and knownMeta.headerPath) == "table" and ns.CopyArray(knownMeta.headerPath) or {}
-	local expansionKey = ns.ResolveFactionExpansionOverride(factionID, rowName)
-		or ns.ExpansionKeyFromGameExp(row.expansionID)
-		or ns.ResolveExpansionKeyFromHeaders(headerPath)
-	if not expansionKey or expansionKey == "" then
-		expansionKey = ns.SafeString(knownMeta and knownMeta.expansionKey, ns.ALL_EXPANSIONS_KEY)
-	end
-
-	return buildStandardScanRow(row, headerPath, expansionKey)
+	return buildStandardScanRow(row, headerPath, knownMeta and knownMeta.expansionKey)
 end
 
 local function appendFallbackStandardRows(rows)
@@ -94,14 +86,7 @@ local function appendFallbackStandardRows(rows)
 			if row and not row.isHeader and rowName ~= "" and row.hasRep ~= false then
 				local knownMeta = knownMetaByFactionID[factionID]
 				local headerPath = type(knownMeta and knownMeta.headerPath) == "table" and ns.CopyArray(knownMeta.headerPath) or {}
-				local expansionKey = ns.ResolveFactionExpansionOverride(factionID, rowName)
-					or ns.ExpansionKeyFromGameExp(row.expansionID)
-					or ns.ResolveExpansionKeyFromHeaders(headerPath)
-				if not expansionKey or expansionKey == "" then
-					expansionKey = ns.SafeString(knownMeta and knownMeta.expansionKey, ns.ALL_EXPANSIONS_KEY)
-				end
-
-				local scanRow = buildStandardScanRow(row, headerPath, expansionKey)
+				local scanRow = buildStandardScanRow(row, headerPath, knownMeta and knownMeta.expansionKey)
 				rows[#rows + 1] = scanRow
 				existingByFactionID[factionID] = true
 				addedCount = addedCount + 1
@@ -118,7 +103,7 @@ local function appendFallbackStandardRows(rows)
 	table.sort(unresolvedNames)
 	local unresolvedLabel = "-"
 	if #unresolvedNames > 0 then
-		local limit = 8
+		local limit = math.max(1, ns.SafeNumber(ns.DEBUG_LOG_NAME_LIMIT, 12))
 		local display = {}
 		for index = 1, math.min(#unresolvedNames, limit) do
 			display[#display + 1] = unresolvedNames[index]
@@ -184,12 +169,7 @@ function ns.ScanStandardReputations()
 				end
 			elseif rowName ~= "" and row.hasRep ~= false then
 				local headerPath = helpers.currentHeaderPath(currentExpansionHeader, currentSectionHeader, currentChildHeader)
-
-				local expansionKey = ns.ResolveFactionExpansionOverride(row.factionID, rowName)
-					or ns.ExpansionKeyFromGameExp(row.expansionID)
-					or ns.ResolveExpansionKeyFromHeaders(headerPath)
-
-				local scanRow = buildStandardScanRow(row, headerPath, expansionKey)
+				local scanRow = buildStandardScanRow(row, headerPath)
 				rows[#rows + 1] = scanRow
 				traceStandardScanRow("STD row", scanRow)
 			end

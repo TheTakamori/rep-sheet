@@ -4,6 +4,10 @@ local ns = RepSheet
 local buffer = {}
 local listeners = {}
 
+local function isDebugEnabled()
+	return ns.IsLocalDebugEnabled and ns.IsLocalDebugEnabled()
+end
+
 local function nowText()
 	if date then
 		return date("%H:%M:%S")
@@ -38,6 +42,10 @@ local function notifyListeners(line)
 end
 
 function ns.DebugLog(message)
+	if not isDebugEnabled() then
+		return
+	end
+
 	local line = string.format("%s %s", nowText(), tostring(message))
 	buffer[#buffer + 1] = line
 	if #buffer > ns.DEBUG_LOG_MAX_LINES then

@@ -10,12 +10,14 @@ ADDON_ROOT = Path(__file__).resolve().parents[1]
 ADDON_NAME = "RepSheet"
 TOC_NAME = f"{ADDON_NAME}.toc"
 LOCAL_DEV_PATH = Path("Core/LocalDev.lua")
+DEBUG_PANE_PATH = Path("UI/DebugPane.lua")
 OUTPUT_DIR = ADDON_ROOT.parents[1]
 SOURCE_ICON_PATTERN = "Media/Icons/*.png"
 IGNORE_NAMES = {
     ".git",
     ".gitignore",
     "CURSEFORGE_SUBMISSION.md",
+    "tests",
     "__pycache__",
     "tools",
     "build",
@@ -43,15 +45,19 @@ def ignore_filter(_directory: str, names: list[str]) -> set[str]:
     return ignored
 
 
-def strip_local_dev_file(staging_root: Path) -> None:
+def strip_release_only_files(staging_root: Path) -> None:
     toc_path = staging_root / TOC_NAME
-    local_dev_path = staging_root / LOCAL_DEV_PATH
+    release_only_paths = (LOCAL_DEV_PATH, DEBUG_PANE_PATH)
+    toc_exclusions = set()
 
-    if local_dev_path.exists():
-        local_dev_path.unlink()
+    for relative_path in release_only_paths:
+        staged_path = staging_root / relative_path
+        if staged_path.exists():
+            staged_path.unlink()
+        toc_exclusions.add(str(relative_path).replace("\\", "/"))
 
     lines = toc_path.read_text().splitlines()
-    filtered_lines = [line for line in lines if line.strip() != str(LOCAL_DEV_PATH).replace("\\", "/")]
+    filtered_lines = [line for line in lines if line.strip() not in toc_exclusions]
     toc_path.write_text("\n".join(filtered_lines) + "\n")
 
 
@@ -68,7 +74,7 @@ def build_release_zip() -> Path:
         staging_parent = Path(temp_dir)
         staging_root = staging_parent / ADDON_NAME
         shutil.copytree(ADDON_ROOT, staging_root, ignore=ignore_filter)
-        strip_local_dev_file(staging_root)
+        strip_release_only_files(staging_root)
         strip_source_icon_pngs(staging_root)
 
         with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

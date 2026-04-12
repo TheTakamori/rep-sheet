@@ -2,6 +2,14 @@ RepSheet = RepSheet or {}
 local ns = RepSheet
 local tree = ns.FactionTree
 
+local function bucketSortName(bucket)
+	local sortName = ns.SafeString(bucket and bucket.sortName)
+	if sortName ~= "" then
+		return sortName
+	end
+	return ns.NormalizeSearchText(bucket and bucket.name or "")
+end
+
 local function appendUnique(list, value)
 	if value == nil or value == "" then
 		return
@@ -103,8 +111,8 @@ local function rebuildChildFactionNames(bucket, byFactionKey)
 	table.sort(bucket.childFactionKeys, function(a, b)
 		local childA = byFactionKey[a]
 		local childB = byFactionKey[b]
-		local nameA = ns.NormalizeSearchText(childA and childA.name or "")
-		local nameB = ns.NormalizeSearchText(childB and childB.name or "")
+		local nameA = bucketSortName(childA)
+		local nameB = bucketSortName(childB)
 		if nameA ~= nameB then
 			return nameA < nameB
 		end
@@ -125,7 +133,7 @@ function tree.LinkBucketRelationships(all, byFactionKey)
 
 	for index = 1, #all do
 		local bucket = all[index]
-		local normalizedName = ns.NormalizeSearchText(bucket.name)
+		local normalizedName = bucketSortName(bucket)
 		if normalizedName ~= "" then
 			bucketsByName[normalizedName] = bucketsByName[normalizedName] or {}
 			bucketsByName[normalizedName][#bucketsByName[normalizedName] + 1] = bucket

@@ -69,7 +69,7 @@ local function buildMajorFactionIDSet(ids)
 	return lookup
 end
 
-local function resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, factionID, rowName)
+local function resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, rowName)
 	if standardRow and type(standardRow.headerPath) == "table" and #standardRow.headerPath > 0 then
 		return ns.CopyArray(standardRow.headerPath)
 	end
@@ -87,39 +87,24 @@ local function buildMajorScanRow(factionID, data, standardRow, headerAncestorsBy
 		return nil
 	end
 
-	local rowName = ns.NormalizeText(pick(data, "name"))
+	local rowName = ns.SafeString(pick(data, "name"))
 	if rowName == "" then
 		return nil
 	end
 
 	local expansionID = pick(data, "expansionID", "expansion", "gameExpansion")
-	local headerPath = resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, factionID, rowName)
-	local expansionKey = (standardRow and standardRow.expansionKey)
-		or ns.ResolveFactionExpansionOverride(factionID, rowName)
-		or ns.ExpansionKeyFromGameExp(expansionID)
-		or ns.ResolveExpansionKeyFromHeaders(headerPath)
-		or ns.ALL_EXPANSIONS_KEY
-
-	if #headerPath == 0 and expansionKey ~= ns.ALL_EXPANSIONS_KEY then
-		local expansionName = ns.ExpansionLabelForKey(expansionKey)
-		if expansionName ~= "" then
-			headerPath[#headerPath + 1] = expansionName
-		end
-	end
+	local headerPath = resolveHeaderPathForMajorRow(standardRow, headerAncestorsByName, rowName)
 
 	local visibleFactionKey = tostring(standardRow and standardRow.factionKey or factionID)
 	local visibleFactionID = ns.SafeNumber(standardRow and standardRow.factionID, factionID)
 	local visibleName = ns.SafeString(standardRow and standardRow.name, rowName)
 
-	return {
+	local scanRow = {
 		factionKey = visibleFactionKey,
 		factionID = visibleFactionID,
 		name = visibleName ~= "" and visibleName or rowName,
-		description = ns.NormalizeText(pick(data, "description")),
+		description = pick(data, "description"),
 		standingId = standardRow and standardRow.standingId or 0,
-		standingText = standardRow and standardRow.standingText or "",
-		currentValue = standardRow and standardRow.currentValue or 0,
-		maxValue = standardRow and standardRow.maxValue or 0,
 		currentStanding = standardRow and standardRow.currentStanding or 0,
 		bottomValue = standardRow and standardRow.bottomValue or 0,
 		topValue = standardRow and standardRow.topValue or 0,
@@ -129,13 +114,15 @@ local function buildMajorScanRow(factionID, data, standardRow, headerAncestorsBy
 		canToggleAtWar = standardRow and standardRow.canToggleAtWar == true or false,
 		isChild = standardRow and standardRow.isChild == true or false,
 		headerPath = headerPath,
-		expansionKey = expansionKey,
 		expansionID = expansionID or (standardRow and standardRow.expansionID),
-		repType = ns.REP_TYPE.STANDARD,
 		majorFactionID = factionID,
-		icon = ns.IconForRepType(ns.REP_TYPE.MAJOR),
 		rawMajorData = data,
 	}
+	local expansionHint = ns.SafeString(standardRow and standardRow.expansionKey)
+	if expansionHint ~= "" then
+		scanRow.expansionKey = expansionHint
+	end
+	return scanRow
 end
 
 local function mergeMajorRowIntoStandardRow(merged, majorRow)
@@ -147,9 +134,7 @@ local function mergeMajorRowIntoStandardRow(merged, majorRow)
 	merged.isAccountWide = merged.isAccountWide == true or majorRow.isAccountWide == true
 	merged.rawMajorData = majorRow.rawMajorData or merged.rawMajorData
 	merged.description = ns.SafeString(merged.description) ~= "" and merged.description or majorRow.description
-	merged.expansionKey = merged.expansionKey or majorRow.expansionKey
 	merged.expansionID = merged.expansionID or majorRow.expansionID
-	merged.icon = ns.IconForRepType(ns.REP_TYPE.MAJOR)
 
 	if type(majorRow.headerPath) == "table" and #majorRow.headerPath > 0 then
 		merged.headerPath = ns.CopyArray(majorRow.headerPath)
@@ -205,12 +190,12 @@ function ns.ScanMajorReputations(standardRows, scanContext)
 			if scanRow then
 				rows[#rows + 1] = scanRow
 				ns.DebugLog(string.format(
-					'MAJOR row name="%s" faction=%s major=%s accountWide=%s expansion=%s headers=%s',
+					'MAJOR row name="%s" faction=%s major=%s accountWide=%s expansionID=%s headers=%s',
 					scanRow.name or ns.TEXT.UNKNOWN,
 					ns.DebugValueText(scanRow.factionID),
 					ns.DebugValueText(scanRow.majorFactionID),
 					ns.DebugValueText(scanRow.isAccountWide),
-					ns.DebugValueText(scanRow.expansionKey),
+					ns.DebugValueText(scanRow.expansionID),
 					type(scanRow.headerPath) == "table" and table.concat(scanRow.headerPath, " > ") or "-"
 				))
 			end
@@ -226,12 +211,12 @@ function ns.ScanMajorReputations(standardRows, scanContext)
 				rows[#rows + 1] = scanRow
 				standaloneCount = standaloneCount + 1
 				ns.DebugLog(string.format(
-					'MAJOR standalone row name="%s" faction=%s major=%s accountWide=%s expansion=%s headers=%s',
+					'MAJOR standalone row name="%s" faction=%s major=%s accountWide=%s expansionID=%s headers=%s',
 					scanRow.name or ns.TEXT.UNKNOWN,
 					ns.DebugValueText(scanRow.factionID),
 					ns.DebugValueText(scanRow.majorFactionID),
 					ns.DebugValueText(scanRow.isAccountWide),
-					ns.DebugValueText(scanRow.expansionKey),
+					ns.DebugValueText(scanRow.expansionID),
 					type(scanRow.headerPath) == "table" and table.concat(scanRow.headerPath, " > ") or "-"
 				))
 			end

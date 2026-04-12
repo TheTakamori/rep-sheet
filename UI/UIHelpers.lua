@@ -243,6 +243,48 @@ function helpers.SetSingleLine(fontString)
 	end
 end
 
+function helpers.RegisterSpecialFrame(frame)
+	if not frame or not frame.GetName then
+		return
+	end
+
+	local frameName = frame:GetName()
+	if not frameName or frameName == "" then
+		return
+	end
+
+	UISpecialFrames = type(UISpecialFrames) == "table" and UISpecialFrames or {}
+	for index = 1, #UISpecialFrames do
+		if UISpecialFrames[index] == frameName then
+			return
+		end
+	end
+
+	UISpecialFrames[#UISpecialFrames + 1] = frameName
+end
+
+function helpers.SetDropdownEnabled(dropdown, enabled)
+	if not dropdown then
+		return
+	end
+
+	enabled = enabled == true
+	if enabled then
+		if UIDropDownMenu_EnableDropDown then
+			UIDropDownMenu_EnableDropDown(dropdown)
+		end
+	else
+		if UIDropDownMenu_DisableDropDown then
+			UIDropDownMenu_DisableDropDown(dropdown)
+		end
+	end
+
+	if dropdown.Button and dropdown.Button.SetEnabled then
+		dropdown.Button:SetEnabled(enabled)
+	end
+	dropdown:SetAlpha(enabled and 1 or ns.UI_DROPDOWN_DISABLED_ALPHA)
+end
+
 function helpers.SetProgressBarTooltipData(statusBar, source, baseFraction)
 	if not statusBar then
 		return

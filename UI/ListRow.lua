@@ -3,6 +3,7 @@ local ns = RepSheet
 local colors = ns.UI_COLORS
 local layout = ns.UI_FACTION_ROW_LAYOUT
 local ui = ns.UIHelpers
+local widgets = ns.UIWidgets
 local FAVORITE_ICON_TEXTURE = "Interface\\Common\\FavoritesIcon"
 local FAVORITE_ICON_COORDS = { 0.125, 0.71875, 0.09375, 0.6875 }
 local FAVORITE_ICON_ATLAS = "PetJournal-FavoritesIcon"
@@ -111,7 +112,13 @@ local function showFavoriteTooltip(button)
 	end
 
 	GameTooltip:SetOwner(button, "ANCHOR_LEFT")
-	GameTooltip:SetText(button.isFavorite and ns.TEXT.UNFAVORITE or ns.TEXT.FAVORITE, 1, 0.82, 0)
+	local tooltipColor = ns.UI_FAVORITE_TOOLTIP_COLOR or ns.FALLBACK_CLASS_COLOR
+	GameTooltip:SetText(
+		button.isFavorite and ns.TEXT.UNFAVORITE or ns.TEXT.FAVORITE,
+		tooltipColor[1],
+		tooltipColor[2],
+		tooltipColor[3]
+	)
 	GameTooltip:Show()
 end
 
@@ -135,9 +142,7 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 	local expandBtn = CreateFrame("Button", nil, row)
 	expandBtn:SetSize(layout.TOGGLE_SIZE, layout.TOGGLE_SIZE)
 	expandBtn:RegisterForClicks("LeftButtonUp")
-	if expandBtn.SetHitRectInsets then
-		expandBtn:SetHitRectInsets(-6, -6, -5, -5)
-	end
+	widgets.ApplyHitRectInsets(expandBtn, ns.UI_FACTION_TOGGLE_HIT_INSETS)
 	setExpandButtonState(expandBtn, false)
 	expandBtn:SetScript("OnClick", function()
 		if cfg.onToggleCollapse and row.factionKey and row.treeHasChildren then
@@ -170,25 +175,15 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 	ui.SetSingleLine(coverage)
 	row.coverage = coverage
 
-	local progressBar = CreateFrame("StatusBar", nil, row)
-	progressBar:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", layout.PROGRESS_LEFT, layout.PROGRESS_BOTTOM)
-	progressBar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", layout.PROGRESS_RIGHT, layout.PROGRESS_BOTTOM)
-	progressBar:SetHeight(layout.PROGRESS_HEIGHT)
-	progressBar:SetStatusBarTexture(ns.UI_TEXTURES.STATUS_BAR)
-	progressBar:GetStatusBarTexture():SetHorizTile(false)
-	progressBar:SetMinMaxValues(0, 1)
-	progressBar.bg = progressBar:CreateTexture(nil, "BACKGROUND")
-	progressBar.bg:SetAllPoints()
-	progressBar.bg:SetColorTexture(
-		colors.STATUS_BAR_BG[1],
-		colors.STATUS_BAR_BG[2],
-		colors.STATUS_BAR_BG[3],
-		colors.STATUS_BAR_BG[4]
-	)
-	ui.CreateBandOverlay(progressBar)
-	ui.CreateParagonOverlay(progressBar)
-	ui.CreateOverallOverlay(progressBar)
-	ui.AttachProgressBarTooltip(progressBar)
+	local progressBar = widgets.CreateProgressBar(row, {
+		leftX = layout.PROGRESS_LEFT,
+		leftY = layout.PROGRESS_BOTTOM,
+		rightX = layout.PROGRESS_RIGHT,
+		rightY = layout.PROGRESS_BOTTOM,
+		height = layout.PROGRESS_HEIGHT,
+		backgroundColor = colors.STATUS_BAR_BG,
+		horizTile = false,
+	})
 	row.progressBar = progressBar
 
 	local progressText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -203,9 +198,7 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 	favoriteBtn:SetSize(layout.FAVORITE_WIDTH, layout.FAVORITE_HEIGHT)
 	favoriteBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", layout.FAVORITE_RIGHT, layout.FAVORITE_TOP)
 	favoriteBtn:RegisterForClicks("LeftButtonUp")
-	if favoriteBtn.SetHitRectInsets then
-		favoriteBtn:SetHitRectInsets(-4, -4, -4, -4)
-	end
+	widgets.ApplyHitRectInsets(favoriteBtn, ns.UI_FAVORITE_BUTTON_HIT_INSETS)
 	favoriteBtn.highlight = favoriteBtn:CreateTexture(nil, "HIGHLIGHT")
 	favoriteBtn.highlight:SetAllPoints()
 	favoriteBtn.highlight:SetColorTexture(1, 1, 1, 0.06)

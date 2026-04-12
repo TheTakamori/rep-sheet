@@ -99,20 +99,33 @@ local function buildStoredReputation(reputation)
 		factionKey = factionKey,
 		factionID = factionID,
 		name = ns.NormalizeText(reputation.name),
+		description = ns.NormalizeText(reputation.description),
 		expansionKey = ns.SafeString(reputation.expansionKey, ns.ALL_EXPANSIONS_KEY),
+		expansionName = ns.SafeString(reputation.expansionName),
 		repType = ns.SafeString(reputation.repType, ns.REP_TYPE.STANDARD),
+		repTypeLabel = ns.SafeString(reputation.repTypeLabel),
 		standingId = ns.SafeNumber(reputation.standingId, 0),
+		standingText = ns.SafeString(reputation.standingText),
+		rankText = ns.SafeString(reputation.rankText),
+		progressText = ns.SafeString(reputation.progressText),
 		currentValue = ns.SafeNumber(reputation.currentValue, 0),
 		maxValue = ns.SafeNumber(reputation.maxValue, 0),
 		currentStanding = ns.SafeNumber(reputation.currentStanding, 0),
 		bottomValue = ns.SafeNumber(reputation.bottomValue, 0),
 		topValue = ns.SafeNumber(reputation.topValue, 0),
+		overallFraction = ns.SafeNumber(reputation.overallFraction, 0),
+		remainingFraction = ns.SafeNumber(reputation.remainingFraction, 1),
+		isMaxed = reputation.isMaxed == true,
 		isAccountWide = reputation.isAccountWide == true,
 		isWatched = reputation.isWatched == true,
 		atWar = reputation.atWar == true,
 		canToggleAtWar = reputation.canToggleAtWar == true,
 		isChild = reputation.isChild == true,
 		headerPath = type(reputation.headerPath) == "table" and ns.CopyArray(reputation.headerPath) or {},
+		headerLabel = ns.SafeString(reputation.headerLabel),
+		sortName = ns.SafeString(reputation.sortName, ns.NormalizeSearchText(reputation.name)),
+		searchText = ns.SafeString(reputation.searchText),
+		icon = ns.SafeString(reputation.icon),
 		hasParagon = reputation.hasParagon == true,
 		paragonValue = ns.SafeNumber(reputation.paragonValue, 0),
 		paragonThreshold = ns.SafeNumber(reputation.paragonThreshold, 0),
@@ -148,48 +161,6 @@ local function buildStoredSnapshot(snapshot)
 	stored.reputations = stored.reputations or {}
 	stored.scanNotes = stored.scanNotes or {}
 	return stored
-end
-
-local function chooseLatestSnapshot(characters)
-	local latestSnapshot = nil
-	local latestKey = ""
-	local latestAt = 0
-
-	for characterKey, snapshot in pairs(characters or {}) do
-		local snapshotKey = ns.SafeString(characterKey, ns.SafeString(snapshot and snapshot.characterKey))
-		local scanAt = ns.SafeNumber(snapshot and snapshot.lastScanAt, 0)
-		if scanAt > latestAt or (scanAt == latestAt and snapshotKey ~= "" and (latestKey == "" or snapshotKey < latestKey)) then
-			latestSnapshot = snapshot
-			latestKey = snapshotKey
-			latestAt = scanAt
-		end
-	end
-
-	return latestSnapshot, latestKey, latestAt
-end
-
-local function recomputeLastScanMetadata(db)
-	local latestSnapshot, latestKey, latestAt = chooseLatestSnapshot(db and db.characters)
-	if latestSnapshot and latestAt > 0 and latestKey ~= "" then
-		db.lastScanAt = latestAt
-		db.lastScanCharacter = latestKey
-		return
-	end
-
-	db.lastScanAt = 0
-	db.lastScanCharacter = ""
-end
-
-local function isCharacterDeleteBlocked()
-	local state = ns.PlayerStateEnsure and ns.PlayerStateEnsure() or ns.PlayerState
-	if type(state) ~= "table" then
-		return false
-	end
-
-	return state.scanInProgress == true
-		or state.scanScheduled == true
-		or (type(state.pendingRefresh) == "table" and state.pendingRefresh.mode ~= nil)
-		or (type(state.queuedRefresh) == "table" and state.queuedRefresh.mode ~= nil)
 end
 
 local function preserveMissingReputations(snapshot, previous, previousBestCount)
@@ -294,6 +265,9 @@ function ns.GetSortedCharacters()
 	local out = {}
 	local characters = ns.GetCharacters()
 	for _, character in pairs(characters) do
+		if ns.BackfillStoredCharacterReputations then
+			ns.BackfillStoredCharacterReputations(character)
+		end
 		out[#out + 1] = character
 	end
 	table.sort(out, function(a, b)
@@ -305,51 +279,4 @@ function ns.GetSortedCharacters()
 		return ns.NormalizeSearchText(a.name) < ns.NormalizeSearchText(b.name)
 	end)
 	return out
-end
-
-function ns.GetForgettableCharacters()
-	local out = {}
-	local currentCharacterKey = ns.GetCurrentCharacterKey and ns.GetCurrentCharacterKey() or ""
-	local characters = ns.GetSortedCharacters()
-
-	for index = 1, #characters do
-		local character = characters[index]
-		local characterKey = ns.SafeString(character and character.characterKey)
-		if characterKey ~= "" and characterKey ~= currentCharacterKey then
-			out[#out + 1] = character
-		end
-	end
-
-	return out
-end
-
-function ns.DeleteCharacterSnapshot(characterKey)
-	characterKey = ns.SafeString(characterKey)
-	if characterKey == "" then
-		return false, "notFound"
-	end
-	if characterKey == (ns.GetCurrentCharacterKey and ns.GetCurrentCharacterKey() or "") then
-		return false, "currentCharacter"
-	end
-	if isCharacterDeleteBlocked() then
-		return false, "scanBusy"
-	end
-
-	local db = RepSheetDB
-	local characters = db and db.characters
-	if type(characters) ~= "table" or type(characters[characterKey]) ~= "table" then
-		return false, "notFound"
-	end
-
-	local removedCharacter = characters[characterKey]
-	characters[characterKey] = nil
-	recomputeLastScanMetadata(db)
-	ns.MarkIndexDirty()
-
-	ns.DebugLog(string.format(
-		"Forgot stored alt snapshot: %s",
-		ns.DebugValueText(removedCharacter and ns.FormatCharacterName(removedCharacter) or characterKey)
-	))
-
-	return true, removedCharacter
 end
