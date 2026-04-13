@@ -5,3 +5,7 @@ __pycache__/
 build/
 dist/
 release/
+CURSEFORGE_SUBMISSION.md
+Core/LocalDev.lua
+.env
+.env.*
