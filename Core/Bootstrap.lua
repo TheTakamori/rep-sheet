@@ -412,10 +412,10 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 			ns.RequestReputationScan(REASON.CHAT_MSG_COMBAT_FACTION_CHANGE, false, REFRESH_MODE.FACTIONS, targetedFactionIDs)
 		else
 			ns.DebugLog(string.format(
-				"Combat faction change unresolved; falling back to known refresh: faction=%s",
+				"Combat faction change unresolved; falling back to full scan: faction=%s",
 				ns.DebugValueText(factionName)
 			))
-			ns.RequestReputationScan(REASON.CHAT_MSG_COMBAT_FACTION_CHANGE, false, REFRESH_MODE.KNOWN)
+			ns.RequestReputationScan(REASON.CHAT_MSG_COMBAT_FACTION_CHANGE, false, REFRESH_MODE.FULL)
 		end
 	elseif event == EVENT.MAJOR_FACTION_RENOWN_LEVEL_CHANGED then
 		local targetedFactionIDs = { arg1 }

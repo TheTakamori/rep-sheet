@@ -319,6 +319,31 @@ return function(runner, root)
 		A.same(targeted_calls[1].factionIDs, { 1, 9 })
 	end)
 
+	runner:test("Full refreshes replace pending generic known refreshes", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local known_calls = {}
+		local full_calls = {}
+
+		ns.RefreshCurrentCharacterKnownReputations = function(reason)
+			known_calls[#known_calls + 1] = reason
+			return scan_result("Known", 2)
+		end
+
+		ns.ScanCurrentCharacter = function(reason)
+			full_calls[#full_calls + 1] = reason
+			return scan_result("Full", 3)
+		end
+
+		ns.RequestReputationScan(ns.SCAN_REASON.UPDATE_FACTION, false, "known")
+		ns.RequestReputationScan(ns.SCAN_REASON.CHAT_MSG_COMBAT_FACTION_CHANGE, false, "full")
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+
+		A.equal(#known_calls, 0)
+		A.equal(#full_calls, 1)
+		A.equal(full_calls[1], ns.SCAN_REASON.CHAT_MSG_COMBAT_FACTION_CHANGE)
+	end)
+
 	runner:test("Combat-deferred refreshes wait for regen and then reschedule normally", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns

@@ -46,7 +46,7 @@ This project is released as `All Rights Reserved`.
 ## Project Metadata
 
 The source metadata and release notes in this tree are current through
-`2.0.5`.
+`2.0.6`.
 
 The following public listing assets still need final values when the
 CurseForge project page is refreshed:

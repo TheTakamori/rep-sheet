@@ -137,7 +137,7 @@ return function(runner, root)
 		A.same(calls[1].factionIDs, { 1, 4 })
 	end)
 
-	runner:test("Combat faction change falls back to known refresh when no faction IDs resolve", function()
+	runner:test("Combat faction change falls back to a full scan when no faction IDs resolve", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns
 		local calls = {}
@@ -156,7 +156,7 @@ return function(runner, root)
 
 		ctx.trigger_event(ns.EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE, "Reputation changed")
 		A.equal(#calls, 1)
-		A.equal(calls[1].mode, "known")
+		A.equal(calls[1].mode, "full")
 		A.equal(calls[1].factionIDs, nil)
 	end)
 
@@ -183,7 +183,7 @@ return function(runner, root)
 		ctx.trigger_event(ns.EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE, "SECRET_COMBAT_MESSAGE")
 		A.equal(#calls, 1)
 		A.equal(calls[1].reason, ns.SCAN_REASON.CHAT_MSG_COMBAT_FACTION_CHANGE)
-		A.equal(calls[1].mode, "known")
+		A.equal(calls[1].mode, "full")
 		A.equal(calls[1].factionIDs, nil)
 	end)
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.6
+
+- Fixed combat reputation updates that could miss newly encountered factions
+  until a manual rescan.
+- Unresolved combat reputation messages now fall back to a full scan so new
+  factions can be discovered automatically.
+
 ## 2.0.5
 
 - Fixed a combat reputation-message taint error caused by WoW protected secret
