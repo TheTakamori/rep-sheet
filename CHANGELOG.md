@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.5
+
+- Fixed a combat reputation-message taint error caused by WoW protected secret
+  strings.
+- Improved fallback refresh handling when combat messages cannot expose a safe
+  faction name.
+
 ## 2.0.4
 
 - Improved reputation progress bars so overall progress and current-rank

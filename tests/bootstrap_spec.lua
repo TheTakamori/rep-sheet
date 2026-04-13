@@ -160,6 +160,33 @@ return function(runner, root)
 		A.equal(calls[1].factionIDs, nil)
 	end)
 
+	runner:test("Combat faction change falls back cleanly when WoW marks the message secret", function()
+		local ctx = support.new_context(root, {
+			configure_env = function(env)
+				env.issecretvalue = function(value)
+					return value == "SECRET_COMBAT_MESSAGE"
+				end
+			end,
+		})
+		local ns = ctx.ns
+		local calls = {}
+
+		ns.RequestReputationScan = function(reason, immediate, mode, faction_ids)
+			calls[#calls + 1] = {
+				reason = reason,
+				immediate = immediate,
+				mode = mode,
+				factionIDs = faction_ids,
+			}
+		end
+
+		ctx.trigger_event(ns.EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE, "SECRET_COMBAT_MESSAGE")
+		A.equal(#calls, 1)
+		A.equal(calls[1].reason, ns.SCAN_REASON.CHAT_MSG_COMBAT_FACTION_CHANGE)
+		A.equal(calls[1].mode, "known")
+		A.equal(calls[1].factionIDs, nil)
+	end)
+
 	runner:test("Major renown and quest-turn-in events request the expected refresh shapes", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns

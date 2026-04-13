@@ -10,6 +10,12 @@ local function trim(text)
 	return text
 end
 
+local function isSecretString(value)
+	return type(value) == "string"
+		and type(issecretvalue) == "function"
+		and issecretvalue(value) == true
+end
+
 function ns.Clamp(value, minValue, maxValue)
 	if value == nil then
 		return minValue
@@ -72,7 +78,7 @@ function ns.SafeNumber(value, fallback)
 end
 
 function ns.SafeString(value, fallback)
-	if type(value) ~= "string" or value == "" then
+	if type(value) ~= "string" or isSecretString(value) or value == "" then
 		return fallback or ""
 	end
 	return value
@@ -100,7 +106,7 @@ function ns.CountTable(tbl)
 end
 
 function ns.NormalizeText(text)
-	if type(text) ~= "string" then
+	if type(text) ~= "string" or isSecretString(text) then
 		return ""
 	end
 	text = text:gsub("|c%x%x%x%x%x%x%x%x", "")

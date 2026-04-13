@@ -111,6 +111,23 @@ return function(runner, root)
 		A.same(ns.MergeFactionIDLists({ 9, 2, 2 }, { 3, -1, 9 }, nil, { 1 }), { 1, 2, 3, 9 })
 	end)
 
+	runner:test("SafeString and NormalizeText ignore secret strings", function()
+		local ctx = support.new_context(root, {
+			configure_env = function(env)
+				env.issecretvalue = function(value)
+					return value == "SECRET"
+				end
+			end,
+		})
+		local ns = ctx.ns
+
+		A.equal(ns.SafeString("SECRET"), "")
+		A.equal(ns.SafeString("SECRET", "fallback"), "fallback")
+		A.equal(ns.SafeString("Visible"), "Visible")
+		A.equal(ns.NormalizeText("SECRET"), "")
+		A.equal(ns.NormalizeText("  Visible\ntext  "), "Visible text")
+	end)
+
 	runner:test("DeriveProgressValues and NormalizeParagonValue handle edge cases", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns
