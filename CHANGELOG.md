@@ -42,7 +42,7 @@
 
 ## 2.0.0
 
-- Renamed the addon from `Alt Rep Tracker` to `Rep Sheet`.
+- Established the first public `Rep Sheet` release.
 - Changed the public slash command to `/reps`.
 - Restored the faction hierarchy handling for grouped reputations such as
   `The Severed Threads` and `The Cartels of Undermine`.

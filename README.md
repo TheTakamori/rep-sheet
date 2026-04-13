@@ -25,12 +25,10 @@ which character has the reputation you need right now?
    `_retail_/Interface/AddOns/`.
 3. Start the game and enable `Rep Sheet` from the addon list if needed.
 
-## Updating From Alt Rep Tracker
+## Updating
 
-`Rep Sheet` is a renamed release of the addon previously developed as
-`AltRepTracker`. This public rename starts with a fresh saved-variable name,
-so prior local test data from `AltRepTracker` does not carry over
-automatically.
+`Rep Sheet` uses the saved-variable name `RepSheetDB`, so prior local test
+data from earlier development builds does not carry over automatically.
 
 ## Notes
 
