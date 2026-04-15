@@ -29,6 +29,14 @@ return function(runner, root)
 				sortKey = "",
 				statusKey = "bogus",
 			},
+			options = {
+				liveUpdates = {
+					noLiveUpdates = false,
+					updateOutOfCombat = true,
+					updatePeriodic = true,
+					periodicMinutes = "30",
+				},
+			},
 		}
 
 		ns.InitDB()
@@ -42,8 +50,37 @@ return function(runner, root)
 		A.equal(db.filters.expansionKey, ns.ALL_EXPANSIONS_KEY)
 		A.equal(db.filters.sortKey, ns.SORT_KEY.BEST_PROGRESS)
 		A.equal(db.filters.statusKey, ns.FILTER_STATUS.ALL)
+		A.equal(db.options.liveUpdates.noLiveUpdates, false)
+		A.truthy(db.options.liveUpdates.updateOutOfCombat)
+		A.truthy(db.options.liveUpdates.updatePeriodic)
+		A.equal(db.options.liveUpdates.periodicMinutes, 30)
 		A.equal(ns.GetMinimapButtonAngle(), ns.DEFAULT_MINIMAP_BUTTON_ANGLE)
 		A.truthy(ns.RuntimeEnsure().indexDirty)
+	end)
+
+	runner:test("InitDB backfills live update defaults without wiping current snapshots", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+
+		ctx.env.RepSheetDB = {
+			version = ns.DB_SCHEMA_VERSION,
+			characters = {
+				["Kept::Snapshot"] = { characterKey = "Kept::Snapshot" },
+			},
+			options = {},
+		}
+
+		ns.InitDB()
+
+		local options = ns.GetLiveUpdateOptions()
+		A.same(ctx.env.RepSheetDB.characters, {
+			["Kept::Snapshot"] = { characterKey = "Kept::Snapshot" },
+		})
+		A.truthy(options.noLiveUpdates)
+		A.falsy(options.updateAfterCombat)
+		A.falsy(options.updateOutOfCombat)
+		A.falsy(options.updatePeriodic)
+		A.equal(options.periodicMinutes, ns.LIVE_UPDATE_PERIODIC_MINUTES_DEFAULT)
 	end)
 
 	runner:test("SetFilterValue sanitizes status keys and invalidates cached views", function()
@@ -68,6 +105,56 @@ return function(runner, root)
 		A.equal(runtime.filteredResults, nil)
 		A.equal(runtime.visibleRows, nil)
 		A.truthy(runtime.visibleRowsDirty)
+	end)
+
+	runner:test("SetLiveUpdateOptions sanitizes values and notifies listeners on change", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		local notifications = {}
+		ns.RegisterOptionsListener("state-test", function(sectionKey, value)
+			notifications[#notifications + 1] = {
+				sectionKey = sectionKey,
+				value = value,
+			}
+		end)
+
+		local changed = ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updateAfterCombat = true,
+			updatePeriodic = true,
+			periodicMinutes = 0.4,
+		})
+		local options = ns.GetLiveUpdateOptions()
+		A.truthy(changed)
+		A.falsy(options.noLiveUpdates)
+		A.truthy(options.updateAfterCombat)
+		A.falsy(options.updateOutOfCombat)
+		A.truthy(options.updatePeriodic)
+		A.equal(options.periodicMinutes, ns.LIVE_UPDATE_PERIODIC_MINUTES_MIN)
+		A.equal(#notifications, 1)
+		A.equal(notifications[1].sectionKey, "liveUpdates")
+		A.equal(notifications[1].value.periodicMinutes, ns.LIVE_UPDATE_PERIODIC_MINUTES_MIN)
+
+		changed = ns.SetLiveUpdateOptions({
+			noLiveUpdates = true,
+			updateAfterCombat = true,
+			updateOutOfCombat = true,
+			updatePeriodic = true,
+			periodicMinutes = 9999,
+		})
+		options = ns.GetLiveUpdateOptions()
+		A.truthy(changed)
+		A.truthy(options.noLiveUpdates)
+		A.falsy(options.updateAfterCombat)
+		A.falsy(options.updateOutOfCombat)
+		A.falsy(options.updatePeriodic)
+		A.equal(options.periodicMinutes, ns.LIVE_UPDATE_PERIODIC_MINUTES_MAX)
+
+		changed = ns.SetLiveUpdateOptions({ noLiveUpdates = true })
+		A.falsy(changed)
+		A.equal(#notifications, 2)
 	end)
 
 	runner:test("ClearStoredReputationData wipes snapshots and resets runtime state", function()
@@ -240,6 +327,20 @@ return function(runner, root)
 		ns.UnregisterDebugListener("test")
 		ns.DebugLog("five")
 		A.equal(#notified, 5)
+	end)
+
+	runner:test("DebugNotify mirrors local developer messages to chat and the debug log", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.LOCAL_DEV.ENABLE_DEBUG = true
+
+		ns.DebugNotify("Rep update started: reason=Manual refresh mode=full")
+
+		A.equal(#ctx.env.__chat_messages, 1)
+		A.contains(ctx.env.__chat_messages[1], "Rep Sheet [DEV]")
+		A.truthy(string.match(ctx.env.__chat_messages[1], "%d%d:%d%d:%d%d"))
+		A.contains(ctx.env.__chat_messages[1], "Rep update started")
+		A.contains(ns.GetLastDebugLine(), "Rep update started")
 	end)
 
 	runner:test("GetForgettableCharacters excludes the current character and stays sorted", function()

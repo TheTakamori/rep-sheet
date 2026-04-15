@@ -4,11 +4,7 @@ local ns = RepSheet
 local ADDON_NAME = ns.ADDON_NAME
 local EVENT = ns.EVENT
 local REASON = ns.SCAN_REASON
-local REFRESH_MODE = {
-	FULL = "full",
-	KNOWN = "known",
-	FACTIONS = "factions",
-}
+local REFRESH_MODE = ns.REFRESH_MODE
 
 local frame = CreateFrame("Frame")
 
@@ -33,16 +29,57 @@ local function describeRefreshRequest(mode, factionIDs)
 	return ns.SafeString(mode, REFRESH_MODE.FULL)
 end
 
-local function mergeRefreshRequest(state, slotKey, reason, mode, factionIDs)
+local function mergeTriggerLabel(existingLabel, incomingLabel)
+	existingLabel = ns.SafeString(existingLabel)
+	incomingLabel = ns.SafeString(incomingLabel)
+	if existingLabel == "" then
+		return incomingLabel
+	end
+	if incomingLabel == "" or incomingLabel == existingLabel then
+		return existingLabel
+	end
+	return existingLabel .. ", " .. incomingLabel
+end
+
+local function notifyScanActivity(phase, reason, mode, factionIDs, snapshot, triggerLabel)
+	if not ns.DebugNotify then
+		return
+	end
+
+	local message = string.format(
+		"Rep update %s: reason=%s mode=%s",
+		ns.SafeString(phase, "started"),
+		ns.DebugValueText(reason),
+		ns.DebugValueText(describeRefreshRequest(mode, factionIDs))
+	)
+	if ns.SafeString(triggerLabel) ~= "" then
+		message = string.format("%s trigger=%s", message, triggerLabel)
+	end
+
+	if snapshot then
+		message = string.format(
+			"%s character=%s reputations=%s",
+			message,
+			ns.FormatCharacterName(snapshot),
+			ns.DebugValueText(snapshot and snapshot.reputationCount)
+		)
+	end
+
+	ns.DebugNotify(message)
+end
+
+local function mergeRefreshRequest(state, slotKey, reason, mode, factionIDs, triggerLabel)
 	local slot = type(state[slotKey]) == "table" and state[slotKey] or {}
 	local incomingMode = mode or REFRESH_MODE.FULL
 	local existingReason = slot.reason
 	local existingMode = slot.mode
+	local existingTriggerLabel = ns.SafeString(slot.triggerLabel)
 
 	if existingMode == REFRESH_MODE.FULL or incomingMode == REFRESH_MODE.FULL then
 		slot.reason = reason or existingReason or REASON.UNKNOWN
 		slot.mode = REFRESH_MODE.FULL
 		slot.factionIDs = nil
+		slot.triggerLabel = mergeTriggerLabel(existingTriggerLabel, triggerLabel)
 	elseif existingMode == REFRESH_MODE.FACTIONS
 		and incomingMode == REFRESH_MODE.KNOWN
 		and ns.ShouldSuppressGenericFactionRefresh
@@ -51,6 +88,7 @@ local function mergeRefreshRequest(state, slotKey, reason, mode, factionIDs)
 		slot.reason = existingReason or reason or REASON.UNKNOWN
 		slot.mode = REFRESH_MODE.FACTIONS
 		slot.factionIDs = mergeFactionIDs(slot.factionIDs, factionIDs)
+		slot.triggerLabel = mergeTriggerLabel(existingTriggerLabel, triggerLabel)
 	elseif existingMode == REFRESH_MODE.KNOWN
 		and ns.ShouldReplaceGenericRefreshWithTargeted
 		and ns.ShouldReplaceGenericRefreshWithTargeted(existingReason, reason, incomingMode)
@@ -58,14 +96,17 @@ local function mergeRefreshRequest(state, slotKey, reason, mode, factionIDs)
 		slot.reason = reason or existingReason or REASON.UNKNOWN
 		slot.mode = REFRESH_MODE.FACTIONS
 		slot.factionIDs = mergeFactionIDs(slot.factionIDs, factionIDs)
+		slot.triggerLabel = mergeTriggerLabel(existingTriggerLabel, triggerLabel)
 	elseif existingMode == REFRESH_MODE.KNOWN or incomingMode == REFRESH_MODE.KNOWN then
 		slot.reason = reason or existingReason or REASON.UNKNOWN
 		slot.mode = REFRESH_MODE.KNOWN
 		slot.factionIDs = nil
+		slot.triggerLabel = mergeTriggerLabel(existingTriggerLabel, triggerLabel)
 	else
 		slot.reason = reason or existingReason or REASON.UNKNOWN
 		slot.mode = REFRESH_MODE.FACTIONS
 		slot.factionIDs = mergeFactionIDs(slot.factionIDs, factionIDs)
+		slot.triggerLabel = mergeTriggerLabel(existingTriggerLabel, triggerLabel)
 	end
 
 	state[slotKey] = slot
@@ -75,11 +116,11 @@ end
 local function takeRefreshRequest(state, slotKey)
 	local slot = state[slotKey]
 	if type(slot) ~= "table" or not slot.mode then
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	end
 
 	state[slotKey] = nil
-	return slot.reason or REASON.UNKNOWN, slot.mode, slot.factionIDs
+	return slot.reason or REASON.UNKNOWN, slot.mode, slot.factionIDs, slot.triggerLabel
 end
 
 local function cancelScheduledScan(state)
@@ -96,7 +137,7 @@ local function flushCombatDeferredRescan()
 		return false
 	end
 
-	local combatReason, combatMode, combatFactionIDs = takeRefreshRequest(state, "combatDeferredRefresh")
+	local combatReason, combatMode, combatFactionIDs, combatTriggerLabel = takeRefreshRequest(state, "combatDeferredRefresh")
 	if not combatReason then
 		return false
 	end
@@ -106,23 +147,23 @@ local function flushCombatDeferredRescan()
 		ns.DebugValueText(combatReason),
 		ns.DebugValueText(describeRefreshRequest(combatMode, combatFactionIDs))
 	))
-	ns.RequestReputationScan(combatReason, false, combatMode, combatFactionIDs)
+	ns.RequestReputationScan(combatReason, false, combatMode, combatFactionIDs, combatTriggerLabel)
 	return true
 end
 
 local function movePendingRefreshToCombatDeferred(state)
-	local pendingReason, pendingMode, pendingFactionIDs = takeRefreshRequest(state, "pendingRefresh")
+	local pendingReason, pendingMode, pendingFactionIDs, pendingTriggerLabel = takeRefreshRequest(state, "pendingRefresh")
 	if not pendingReason then
 		return nil
 	end
 
 	cancelScheduledScan(state)
-	return mergeRefreshRequest(state, "combatDeferredRefresh", pendingReason, pendingMode, pendingFactionIDs)
+	return mergeRefreshRequest(state, "combatDeferredRefresh", pendingReason, pendingMode, pendingFactionIDs, pendingTriggerLabel)
 end
 
-local function deferRefreshUntilAfterCombat(state, reason, mode, factionIDs)
+local function deferRefreshUntilAfterCombat(state, reason, mode, factionIDs, triggerLabel)
 	local movedPending = movePendingRefreshToCombatDeferred(state)
-	local deferred = mergeRefreshRequest(state, "combatDeferredRefresh", reason, mode, factionIDs)
+	local deferred = mergeRefreshRequest(state, "combatDeferredRefresh", reason, mode, factionIDs, triggerLabel)
 	ns.DebugLog(string.format(
 		"Refresh deferred until after combat: reason=%s mode=%s movedPending=%s",
 		ns.DebugValueText(reason),
@@ -176,13 +217,13 @@ local function flushQueuedRescan()
 		return
 	end
 
-	local queuedReason, queuedMode, queuedFactionIDs = takeRefreshRequest(state, "queuedRefresh")
+	local queuedReason, queuedMode, queuedFactionIDs, queuedTriggerLabel = takeRefreshRequest(state, "queuedRefresh")
 	ns.DebugLog(string.format(
 		"Running queued follow-up refresh: reason=%s mode=%s",
 		ns.DebugValueText(queuedReason),
 		ns.DebugValueText(describeRefreshRequest(queuedMode, queuedFactionIDs))
 	))
-	ns.RequestReputationScan(queuedReason, false, queuedMode, queuedFactionIDs)
+	ns.RequestReputationScan(queuedReason, false, queuedMode, queuedFactionIDs, queuedTriggerLabel)
 end
 
 local function noteScanResult(snapshot, reason)
@@ -208,7 +249,7 @@ local function noteScanResult(snapshot, reason)
 	))
 end
 
-local function completeScan(scanToken, reason, refreshMode, factionIDs, ok, result)
+local function completeScan(scanToken, reason, refreshMode, factionIDs, triggerLabel, ok, result)
 	local state = ns.PlayerStateEnsure()
 	if state.activeScanToken ~= scanToken then
 		return result
@@ -229,6 +270,7 @@ local function completeScan(scanToken, reason, refreshMode, factionIDs, ok, resu
 		ns.FormatCharacterName(result),
 		ns.DebugValueText(result and result.reputationCount)
 	))
+	notifyScanActivity("completed", reason, refreshMode, factionIDs, result, triggerLabel)
 	noteScanResult(result, reason)
 	refreshUI()
 	flushQueuedRescan()
@@ -236,7 +278,7 @@ local function completeScan(scanToken, reason, refreshMode, factionIDs, ok, resu
 	return result
 end
 
-local function performScan(reason, mode, factionIDs, allowAsync)
+local function performScan(reason, mode, factionIDs, allowAsync, triggerLabel)
 	local state = ns.PlayerStateEnsure()
 	local refreshMode = mode or REFRESH_MODE.FULL
 	state.scanInProgress = true
@@ -249,9 +291,10 @@ local function performScan(reason, mode, factionIDs, allowAsync)
 		ns.DebugValueText(describeRefreshRequest(refreshMode, factionIDs)),
 		ns.FormatCharacterName(ns.BuildCurrentCharacterMeta())
 	))
+	notifyScanActivity("started", reason, refreshMode, factionIDs, nil, triggerLabel)
 	if allowAsync and refreshMode == REFRESH_MODE.KNOWN and ns.StartAsyncKnownReputationRefresh then
 		local started = ns.StartAsyncKnownReputationRefresh(reason, scanToken, function(ok, result)
-			completeScan(scanToken, reason, refreshMode, factionIDs, ok, result)
+			completeScan(scanToken, reason, refreshMode, factionIDs, triggerLabel, ok, result)
 		end)
 		if started then
 			return
@@ -271,21 +314,21 @@ local function performScan(reason, mode, factionIDs, allowAsync)
 	else
 		ok, snapshot = pcall(scanFunction, reason)
 	end
-	return completeScan(scanToken, reason, refreshMode, factionIDs, ok, snapshot)
+	return completeScan(scanToken, reason, refreshMode, factionIDs, triggerLabel, ok, snapshot)
 end
 
-function ns.RequestReputationScan(reason, immediate, mode, factionIDs)
+function ns.RequestReputationScan(reason, immediate, mode, factionIDs, triggerLabel)
 	local state = ns.PlayerStateEnsure()
 	local refreshMode = mode or REFRESH_MODE.FULL
 	local normalizedFactionIDs = refreshMode == REFRESH_MODE.FACTIONS and ns.NormalizeFactionIDList(factionIDs) or nil
 
 	if not immediate and isInCombat() then
-		deferRefreshUntilAfterCombat(state, reason, refreshMode, normalizedFactionIDs)
+		deferRefreshUntilAfterCombat(state, reason, refreshMode, normalizedFactionIDs, triggerLabel)
 		return
 	end
 
 	if state.scanInProgress then
-		local queued = mergeRefreshRequest(state, "queuedRefresh", reason, refreshMode, normalizedFactionIDs)
+		local queued = mergeRefreshRequest(state, "queuedRefresh", reason, refreshMode, normalizedFactionIDs, triggerLabel)
 		ns.DebugLog(string.format(
 			"Refresh queued during active scan: reason=%s mode=%s",
 			ns.DebugValueText(reason),
@@ -294,15 +337,16 @@ function ns.RequestReputationScan(reason, immediate, mode, factionIDs)
 		return
 	end
 
-	local pending = mergeRefreshRequest(state, "pendingRefresh", reason, refreshMode, normalizedFactionIDs)
+	local pending = mergeRefreshRequest(state, "pendingRefresh", reason, refreshMode, normalizedFactionIDs, triggerLabel)
 
 	if immediate or not (C_Timer and C_Timer.After) then
-		local pendingReason, pendingMode, pendingFactionIDs = takeRefreshRequest(state, "pendingRefresh")
+		local pendingReason, pendingMode, pendingFactionIDs, pendingTriggerLabel = takeRefreshRequest(state, "pendingRefresh")
 		return performScan(
 			pendingReason or reason or REASON.UNKNOWN,
 			pendingMode or pending.mode,
 			pendingFactionIDs or pending.factionIDs,
-			false
+			false,
+			pendingTriggerLabel or pending.triggerLabel
 		)
 	end
 
@@ -318,17 +362,17 @@ function ns.RequestReputationScan(reason, immediate, mode, factionIDs)
 			return
 		end
 		state.scanScheduled = false
-		local pendingReason, pendingMode, pendingFactionIDs = takeRefreshRequest(state, "pendingRefresh")
+		local pendingReason, pendingMode, pendingFactionIDs, pendingTriggerLabel = takeRefreshRequest(state, "pendingRefresh")
 		if pendingReason then
 			if isInCombat() then
-				deferRefreshUntilAfterCombat(state, pendingReason, pendingMode, pendingFactionIDs)
+				deferRefreshUntilAfterCombat(state, pendingReason, pendingMode, pendingFactionIDs, pendingTriggerLabel)
 				return
 			end
 			if state.scanInProgress then
-				mergeRefreshRequest(state, "queuedRefresh", pendingReason, pendingMode, pendingFactionIDs)
+				mergeRefreshRequest(state, "queuedRefresh", pendingReason, pendingMode, pendingFactionIDs, pendingTriggerLabel)
 				return
 			end
-			performScan(pendingReason, pendingMode, pendingFactionIDs, true)
+			performScan(pendingReason, pendingMode, pendingFactionIDs, true, pendingTriggerLabel)
 		end
 	end)
 end
@@ -344,21 +388,22 @@ local function startInitialScan(reason)
 	))
 	state.pendingRefresh = nil
 	state.queuedRefresh = nil
-	ns.RequestReputationScan(reason, false, REFRESH_MODE.FULL)
+	ns.RequestReputationScan(reason, true, REFRESH_MODE.FULL)
 end
 
 frame:RegisterEvent(EVENT.ADDON_LOADED)
 frame:RegisterEvent(EVENT.PLAYER_LOGIN)
-frame:RegisterEvent(EVENT.PLAYER_ENTERING_WORLD)
 frame:RegisterEvent(EVENT.PLAYER_REGEN_ENABLED)
-frame:RegisterEvent(EVENT.UPDATE_FACTION)
-frame:RegisterEvent(EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE)
-frame:RegisterEvent(EVENT.MAJOR_FACTION_RENOWN_LEVEL_CHANGED)
-frame:RegisterEvent(EVENT.QUEST_TURNED_IN)
 
-frame:SetScript("OnEvent", function(_, event, arg1)
+frame:SetScript("OnEvent", function(_, event, arg1, ...)
 	if event == EVENT.ADDON_LOADED and arg1 == ADDON_NAME then
 		ns.InitDB()
+		if ns.EnsureOptionsPanel then
+			ns.EnsureOptionsPanel()
+		end
+		if ns.InitializeLiveUpdateController then
+			ns.InitializeLiveUpdateController(frame)
+		end
 		if ns.EnsureMinimapButton then
 			ns.EnsureMinimapButton()
 		end
@@ -368,67 +413,11 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 			ns.EnsureMinimapButton()
 		end
 		startInitialScan(REASON.PLAYER_LOGIN)
-	elseif event == EVENT.PLAYER_ENTERING_WORLD then
-		ns.RequestReputationScan(REASON.PLAYER_ENTERING_WORLD, false, REFRESH_MODE.KNOWN)
 	elseif event == EVENT.PLAYER_REGEN_ENABLED then
 		resumeDeferredBackgroundJob()
 		flushCombatDeferredRescan()
-	elseif event == EVENT.UPDATE_FACTION then
-		local state = ns.PlayerStateEnsure()
-		local suppressedCount = ns.SafeNumber(state.suppressedUpdateFactionEvents, 0)
-		local suppressUntil = ns.SafeNumber(state.suppressedUpdateFactionUntil, 0)
-		local now = ns.SafeTime()
-		if suppressedCount > 0 and now <= suppressUntil then
-			state.suppressedUpdateFactionEvents = suppressedCount - 1
-			ns.DebugLog(string.format(
-				"UPDATE_FACTION ignored: header mutation pending=%s",
-				ns.DebugValueText(state.suppressedUpdateFactionEvents)
-			))
-			return
-		end
-		if suppressedCount > 0 and now > suppressUntil then
-			state.suppressedUpdateFactionEvents = 0
-			state.suppressedUpdateFactionUntil = 0
-		end
-		if ns.ShouldSuppressGenericFactionRefresh and ns.ShouldSuppressGenericFactionRefresh(REASON.UPDATE_FACTION) then
-			ns.DebugLog("UPDATE_FACTION ignored: targeted refresh burst active.")
-			return
-		end
-		ns.RequestReputationScan(REASON.UPDATE_FACTION, false, REFRESH_MODE.KNOWN)
-	elseif event == EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE then
-		local targetedFactionIDs, factionName = {}, ""
-		if ns.ResolveFactionIDsFromCombatMessage then
-			targetedFactionIDs, factionName = ns.ResolveFactionIDsFromCombatMessage(arg1)
-		end
-		if type(targetedFactionIDs) == "table" and #targetedFactionIDs > 0 then
-			if ns.NoteTargetedFactionRefresh then
-				targetedFactionIDs = ns.NoteTargetedFactionRefresh(targetedFactionIDs)
-			end
-			ns.DebugLog(string.format(
-				"Combat faction change targeted refresh: faction=%s ids=%s",
-				ns.DebugValueText(factionName),
-				ns.DebugValueText(#targetedFactionIDs)
-			))
-			ns.RequestReputationScan(REASON.CHAT_MSG_COMBAT_FACTION_CHANGE, false, REFRESH_MODE.FACTIONS, targetedFactionIDs)
-		else
-			ns.DebugLog(string.format(
-				"Combat faction change unresolved; falling back to full scan: faction=%s",
-				ns.DebugValueText(factionName)
-			))
-			ns.RequestReputationScan(REASON.CHAT_MSG_COMBAT_FACTION_CHANGE, false, REFRESH_MODE.FULL)
-		end
-	elseif event == EVENT.MAJOR_FACTION_RENOWN_LEVEL_CHANGED then
-		local targetedFactionIDs = { arg1 }
-		if ns.NoteTargetedFactionRefresh then
-			targetedFactionIDs = ns.NoteTargetedFactionRefresh(targetedFactionIDs)
-		end
-		ns.RequestReputationScan(REASON.MAJOR_FACTION_RENOWN_LEVEL_CHANGED, false, REFRESH_MODE.FACTIONS, targetedFactionIDs)
-	elseif event == EVENT.QUEST_TURNED_IN then
-		if ns.ShouldSuppressGenericFactionRefresh and ns.ShouldSuppressGenericFactionRefresh(REASON.QUEST_TURNED_IN) then
-			ns.DebugLog("QUEST_TURNED_IN ignored: targeted refresh burst active.")
-			return
-		end
-		ns.RequestReputationScan(REASON.QUEST_TURNED_IN, false, REFRESH_MODE.KNOWN)
+	elseif ns.HandleLiveUpdateEvent then
+		ns.HandleLiveUpdateEvent(event, arg1, ...)
 	end
 end)
 

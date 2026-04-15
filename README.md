@@ -11,6 +11,7 @@ which character has the reputation you need right now?
 - Handles warband reputations and per-character reputations.
 - Preserves faction hierarchy where Blizzard exposes real parent-child data.
 - Adds a movable minimap icon for quick access.
+- Includes Blizzard Settings options for optional live reputation updates.
 - Shows version information directly in the main window.
 
 ## Slash Commands
@@ -34,6 +35,9 @@ data from earlier development builds does not carry over automatically.
 
 - A character must log in with the addon installed before that character can
   appear in comparisons.
+- Reputation data now refreshes automatically only on character login or UI
+  reload by default. Optional live update modes can be enabled from the addon
+  settings page if you want more frequent refreshes during play.
 - Public release builds do not expose the local developer debug entry points
   that are available in the source install.
 
@@ -44,7 +48,7 @@ This project is released as `All Rights Reserved`.
 ## Project Metadata
 
 The source metadata and release notes in this tree are current through
-`2.0.6`.
+`2.1.1`.
 
 The following public listing assets still need final values when the
 CurseForge project page is refreshed:

@@ -158,6 +158,35 @@ return function(runner, root)
 		A.equal(ns.PlayerStateEnsure().suppressedUpdateFactionEvents, 4)
 	end)
 
+	runner:test("Header mutation suppression starts before Blizzard header APIs run", function()
+		local ctx = support.new_context(root, { files = SCANNER_FILES })
+		local ns = ctx.ns
+		local helpers = ns.ScannerStandardHelpers
+		local headers = {
+			{ name = "Classic / Vanilla", isHeader = true, isCollapsed = true },
+		}
+
+		ctx.env.C_Reputation.GetNumFactions = function()
+			return #headers
+		end
+		ctx.env.C_Reputation.GetFactionDataByIndex = function(index)
+			return headers[index]
+		end
+		ctx.env.C_Reputation.ExpandFactionHeader = function(index)
+			A.truthy(ns.PlayerStateEnsure().suppressedUpdateFactionUntil > ns.SafeTime())
+			headers[index].isCollapsed = false
+		end
+		ctx.env.C_Reputation.CollapseFactionHeader = function(index)
+			A.truthy(ns.PlayerStateEnsure().suppressedUpdateFactionUntil > ns.SafeTime())
+			headers[index].isCollapsed = true
+		end
+
+		local collapsed = helpers.expandAllHeaders()
+		A.same(collapsed, { "Classic / Vanilla" })
+		helpers.restoreCollapsedHeaders(collapsed)
+		A.equal(ns.PlayerStateEnsure().suppressedUpdateFactionEvents, 2)
+	end)
+
 	runner:test("GetStandardScanRowByFactionID rejects invalid rows and carries known metadata", function()
 		local ctx = support.new_context(root, { files = SCANNER_FILES })
 		local ns = ctx.ns

@@ -45,9 +45,15 @@ function ns.CreateMainFrame()
 	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", ns.UI_CLOSE_BUTTON_RIGHT, ns.UI_CLOSE_BUTTON_TOP)
 
+	local optionsBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+	optionsBtn:SetSize(ns.UI_OPTIONS_BUTTON_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
+	optionsBtn:SetPoint("RIGHT", close, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
+	optionsBtn:SetText(ns.TEXT.OPTIONS)
+	frame.optionsBtn = optionsBtn
+
 	local forgetAltBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
 	forgetAltBtn:SetSize(ns.UI_FORGET_ALT_BUTTON_WIDTH, ns.UI_DEBUG_BUTTON_HEIGHT)
-	forgetAltBtn:SetPoint("RIGHT", close, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
+	forgetAltBtn:SetPoint("RIGHT", optionsBtn, "LEFT", ns.UI_DEBUG_BUTTON_GAP, 0)
 	forgetAltBtn:SetText(ns.TEXT.FORGET_ALT)
 	frame.forgetAltBtn = forgetAltBtn
 
@@ -268,6 +274,12 @@ function ns.CreateMainFrame()
 			frame:SetDebugPageShown(not debugPane:IsShown())
 		end)
 	end
+
+	optionsBtn:SetScript("OnClick", function()
+		if ns.OpenOptionsPanel then
+			ns.OpenOptionsPanel()
+		end
+	end)
 
 	forgetAltBtn:SetScript("OnClick", function()
 		if forgetAltDialog.Open then

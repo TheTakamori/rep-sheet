@@ -3,6 +3,7 @@ local ns = RepSheet
 
 local buffer = {}
 local listeners = {}
+local CHAT_PREFIX = "|cffc8a14aRep Sheet [DEV]|r"
 
 local function isDebugEnabled()
 	return ns.IsLocalDebugEnabled and ns.IsLocalDebugEnabled()
@@ -41,17 +42,39 @@ local function notifyListeners(line)
 	end
 end
 
-function ns.DebugLog(message)
-	if not isDebugEnabled() then
-		return
-	end
-
+local function appendDebugLine(message)
 	local line = string.format("%s %s", nowText(), tostring(message))
 	buffer[#buffer + 1] = line
 	if #buffer > ns.DEBUG_LOG_MAX_LINES then
 		table.remove(buffer, 1)
 	end
 	notifyListeners(line)
+	return line
+end
+
+function ns.DebugLog(message)
+	if not isDebugEnabled() then
+		return
+	end
+
+	appendDebugLine(message)
+end
+
+function ns.DebugNotify(message)
+	if not isDebugEnabled() then
+		return
+	end
+
+	local text = tostring(message)
+	local line = appendDebugLine(text)
+
+	local chatMessage = string.format("%s %s", CHAT_PREFIX, line)
+	local chatFrame = DEFAULT_CHAT_FRAME
+	if type(chatFrame) == "table" and type(chatFrame.AddMessage) == "function" then
+		chatFrame:AddMessage(chatMessage)
+	elseif type(print) == "function" then
+		print(chatMessage)
+	end
 end
 
 function ns.GetDebugLogLines()

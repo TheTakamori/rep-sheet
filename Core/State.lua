@@ -26,6 +26,82 @@ local function sanitizeStatusKey(statusKey)
 	return statusKey
 end
 
+local function sanitizeLiveUpdateOptions(options)
+	options = type(options) == "table" and options or {}
+
+	local periodicMinutes = math.floor(ns.SafeNumber(
+		options.periodicMinutes,
+		ns.LIVE_UPDATE_PERIODIC_MINUTES_DEFAULT
+	))
+	periodicMinutes = math.max(ns.LIVE_UPDATE_PERIODIC_MINUTES_MIN, periodicMinutes)
+	periodicMinutes = math.min(ns.LIVE_UPDATE_PERIODIC_MINUTES_MAX, periodicMinutes)
+
+	local sanitized = {
+		noLiveUpdates = options.noLiveUpdates ~= false,
+		updateAfterCombat = options.updateAfterCombat == true,
+		updateOutOfCombat = options.updateOutOfCombat == true,
+		updatePeriodic = options.updatePeriodic == true,
+		periodicMinutes = periodicMinutes,
+	}
+
+	if sanitized.noLiveUpdates then
+		sanitized.updateAfterCombat = false
+		sanitized.updateOutOfCombat = false
+		sanitized.updatePeriodic = false
+	elseif sanitized.updateAfterCombat ~= true
+		and sanitized.updateOutOfCombat ~= true
+		and sanitized.updatePeriodic ~= true
+	then
+		sanitized.noLiveUpdates = true
+	end
+
+	return sanitized
+end
+
+local function copyTable(source)
+	local out = {}
+	for key, value in pairs(source or {}) do
+		out[key] = value
+	end
+	return out
+end
+
+local function sameFlatTable(left, right)
+	for key, value in pairs(left or {}) do
+		if right[key] ~= value then
+			return false
+		end
+	end
+	for key, value in pairs(right or {}) do
+		if left[key] ~= value then
+			return false
+		end
+	end
+	return true
+end
+
+local function sortedKeys(tbl)
+	local keys = {}
+	for key in pairs(tbl or {}) do
+		keys[#keys + 1] = key
+	end
+	table.sort(keys, function(left, right)
+		return tostring(left) < tostring(right)
+	end)
+	return keys
+end
+
+local function notifyOptionsListeners(sectionKey, value)
+	local runtime = ns.RuntimeEnsure()
+	local listeners = runtime.optionsListeners or {}
+	for _, listenerKey in ipairs(sortedKeys(listeners)) do
+		local callback = listeners[listenerKey]
+		if type(callback) == "function" then
+			callback(sectionKey, value)
+		end
+	end
+end
+
 function ns.PlayerStateEnsure()
 	local state = ns.PlayerState or {}
 	ns.PlayerState = state
@@ -43,6 +119,7 @@ function ns.RuntimeEnsure()
 	end
 	runtime.collapsedFactionKeys = runtime.collapsedFactionKeys or {}
 	runtime.currentPage = runtime.currentPage or 0
+	runtime.optionsListeners = type(runtime.optionsListeners) == "table" and runtime.optionsListeners or {}
 	if runtime.visibleRowsDirty == nil then
 		runtime.visibleRowsDirty = true
 	end
@@ -97,6 +174,7 @@ function ns.InitDB()
 	ensureTable(db, "favorites")
 	local ui = ensureTable(db, "ui")
 	local filters = ensureTable(db, "filters")
+	local options = ensureTable(db, "options")
 	local defaultFramePosition = ns.DEFAULT_MAIN_FRAME_POSITION
 
 	ui.selectedFactionKey = ui.selectedFactionKey or nil
@@ -113,6 +191,7 @@ function ns.InitDB()
 	filters.expansionKey = ns.SafeString(filters.expansionKey, ns.ALL_EXPANSIONS_KEY)
 	filters.sortKey = ns.SafeString(filters.sortKey, ns.SORT_KEY.BEST_PROGRESS)
 	filters.statusKey = sanitizeStatusKey(filters.statusKey)
+	options.liveUpdates = sanitizeLiveUpdateOptions(options.liveUpdates)
 
 	db.lastScanAt = ns.SafeNumber(db.lastScanAt, 0)
 	db.lastScanCharacter = ns.SafeString(db.lastScanCharacter)
@@ -178,6 +257,57 @@ function ns.GetMinimapButtonAngle()
 	local ui = RepSheetDB.ui
 	local minimapButton = ui and ui.minimapButton
 	return ns.SafeNumber(minimapButton and minimapButton.angle, ns.DEFAULT_MINIMAP_BUTTON_ANGLE)
+end
+
+function ns.GetOptions()
+	local db = ns.GetDB()
+	return db and db.options or nil
+end
+
+function ns.GetLiveUpdateOptions()
+	local options = ns.GetOptions()
+	return copyTable(sanitizeLiveUpdateOptions(options and options.liveUpdates))
+end
+
+function ns.SetLiveUpdateOptions(nextOptions)
+	local options = ensureTable(RepSheetDB, "options")
+	local current = sanitizeLiveUpdateOptions(options.liveUpdates)
+	local merged = copyTable(current)
+
+	for key, value in pairs(type(nextOptions) == "table" and nextOptions or {}) do
+		merged[key] = value
+	end
+
+	local sanitized = sanitizeLiveUpdateOptions(merged)
+	if sameFlatTable(current, sanitized) then
+		return false
+	end
+
+	options.liveUpdates = sanitized
+	notifyOptionsListeners("liveUpdates", copyTable(sanitized))
+	return true
+end
+
+function ns.RegisterOptionsListener(listenerKey, callback)
+	listenerKey = ns.SafeString(listenerKey)
+	if listenerKey == "" or type(callback) ~= "function" then
+		return false
+	end
+	ns.RuntimeEnsure().optionsListeners[listenerKey] = callback
+	return true
+end
+
+function ns.UnregisterOptionsListener(listenerKey)
+	listenerKey = ns.SafeString(listenerKey)
+	if listenerKey == "" then
+		return false
+	end
+	local listeners = ns.RuntimeEnsure().optionsListeners
+	if listeners[listenerKey] == nil then
+		return false
+	end
+	listeners[listenerKey] = nil
+	return true
 end
 
 function ns.SetMinimapButtonAngle(angle)

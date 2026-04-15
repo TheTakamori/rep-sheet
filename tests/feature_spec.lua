@@ -269,6 +269,25 @@ return function(runner, root)
 		A.equal(state.lastSuccessfulScanReason, ns.SCAN_REASON.MANUAL_REFRESH)
 	end)
 
+	runner:test("Local developer mode announces scan start and completion in chat and debug log", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.LOCAL_DEV.ENABLE_DEBUG = true
+
+		ns.ScanCurrentCharacter = function(reason)
+			A.equal(reason, ns.SCAN_REASON.MANUAL_REFRESH)
+			return scan_result("DevNotice", 6)
+		end
+
+		ns.RequestReputationScan(ns.SCAN_REASON.MANUAL_REFRESH, true)
+
+		A.equal(#ctx.env.__chat_messages, 2)
+		A.contains(ctx.env.__chat_messages[1], "Rep update started")
+		A.contains(ctx.env.__chat_messages[2], "Rep update completed")
+		A.contains(ns.GetDebugLogText(), "Rep update started")
+		A.contains(ns.GetDebugLogText(), "Rep update completed")
+	end)
+
 	runner:test("RequestReputationScan merges delayed known-refresh requests into one timer", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns
@@ -431,5 +450,231 @@ return function(runner, root)
 
 		ctx.run_due_timers()
 		A.equal(resumed, 1)
+	end)
+
+	runner:test("Combat-detected reputation changes trigger one deferred targeted refresh after combat", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local calls = {}
+
+		ctx.trigger_event(ns.EVENT.ADDON_LOADED, ns.ADDON_NAME)
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updateAfterCombat = true,
+		})
+
+		ctx.env.FACTION_STANDING_INCREASED = "Reputation with %s increased by %d."
+		ns.ScannerStandardHelpers.getCharacterFactionMetadata = function()
+			return { 2600 }, {
+				[2600] = { name = "The Cartels of Undermine" },
+			}
+		end
+		ns.RefreshCurrentCharacterByFactionIDs = function(reason, faction_ids)
+			calls[#calls + 1] = {
+				reason = reason,
+				factionIDs = support.copy_array(faction_ids),
+			}
+			return scan_result("CombatTargeted", 2)
+		end
+
+		ctx.set_combat(true)
+		ctx.trigger_event(
+			ns.EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE,
+			"Reputation with The Cartels of Undermine increased by 500."
+		)
+		A.equal(#calls, 0)
+		A.equal(ns.PlayerStateEnsure().combatDeferredRefresh.mode, ns.REFRESH_MODE.FACTIONS)
+		A.same(ns.PlayerStateEnsure().combatDeferredRefresh.factionIDs, { 2600 })
+
+		ctx.set_combat(false)
+		ctx.trigger_event(ns.EVENT.PLAYER_REGEN_ENABLED)
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#calls, 1)
+		A.equal(calls[1].reason, ns.SCAN_REASON.CHAT_MSG_COMBAT_FACTION_CHANGE)
+		A.same(calls[1].factionIDs, { 2600 })
+	end)
+
+	runner:test("Generic UPDATE_FACTION is ignored even when combat live updates are enabled", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local calls = {}
+
+		ctx.trigger_event(ns.EVENT.ADDON_LOADED, ns.ADDON_NAME)
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updateAfterCombat = true,
+		})
+		ns.RefreshCurrentCharacterKnownReputations = function(reason)
+			calls[#calls + 1] = reason
+			return scan_result("CombatGeneric", 1)
+		end
+
+		ctx.set_combat(true)
+		ctx.trigger_event(ns.EVENT.UPDATE_FACTION)
+		A.equal(#calls, 0)
+		A.equal(ns.PlayerStateEnsure().combatDeferredRefresh, nil)
+
+		ctx.set_combat(false)
+		ctx.trigger_event(ns.EVENT.PLAYER_REGEN_ENABLED)
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#calls, 0)
+	end)
+
+	runner:test("Outside-combat live updates schedule targeted refreshes when reputation changes", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local calls = {}
+		ns.LOCAL_DEV.ENABLE_DEBUG = true
+
+		ctx.trigger_event(ns.EVENT.ADDON_LOADED, ns.ADDON_NAME)
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updateOutOfCombat = true,
+		})
+
+		ctx.env.FACTION_STANDING_INCREASED = "Reputation with %s increased by %d."
+		ns.ScannerStandardHelpers.getCharacterFactionMetadata = function()
+			return { 2590 }, {
+				[2590] = { name = "Council of Dornogal" },
+			}
+		end
+		ns.RefreshCurrentCharacterByFactionIDs = function(reason, faction_ids)
+			calls[#calls + 1] = {
+				reason = reason,
+				factionIDs = support.copy_array(faction_ids),
+			}
+			return scan_result("LiveTargeted", 1)
+		end
+
+		ctx.trigger_event(
+			ns.EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE,
+			"Reputation with Council of Dornogal increased by 250."
+		)
+		A.equal(#calls, 0)
+
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#calls, 1)
+		A.equal(calls[1].reason, ns.SCAN_REASON.CHAT_MSG_COMBAT_FACTION_CHANGE)
+		A.same(calls[1].factionIDs, { 2590 })
+		A.contains(ctx.env.__chat_messages[1], "trigger=reputation-change: Council of Dornogal")
+		A.contains(ctx.env.__chat_messages[2], "trigger=reputation-change: Council of Dornogal")
+	end)
+
+	runner:test("Periodic live refreshes reschedule when the configured minutes change", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local calls = {}
+		ns.LOCAL_DEV.ENABLE_DEBUG = true
+
+		ctx.trigger_event(ns.EVENT.ADDON_LOADED, ns.ADDON_NAME)
+		ns.ScanCurrentCharacter = function(reason)
+			calls[#calls + 1] = reason
+			return scan_result("Periodic", 3)
+		end
+
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updatePeriodic = true,
+			periodicMinutes = 3,
+		})
+
+		ctx.advance(179)
+		A.equal(#calls, 0)
+		ctx.advance(1)
+		A.equal(#calls, 0)
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#calls, 1)
+		A.equal(calls[1], ns.SCAN_REASON.DELAYED)
+		A.contains(ctx.env.__chat_messages[1], "trigger=periodic")
+		A.contains(ctx.env.__chat_messages[2], "trigger=periodic")
+
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updatePeriodic = true,
+			periodicMinutes = 1,
+		})
+
+		ctx.advance(59)
+		A.equal(#calls, 1)
+		ctx.advance(1)
+		A.equal(#calls, 1)
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#calls, 2)
+		A.equal(calls[2], ns.SCAN_REASON.DELAYED)
+	end)
+
+	runner:test("Combat-deferred periodic refresh ignores UPDATE_FACTION churn", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local full_calls = {}
+		local known_calls = {}
+
+		ctx.trigger_event(ns.EVENT.ADDON_LOADED, ns.ADDON_NAME)
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updateOutOfCombat = true,
+			updatePeriodic = true,
+			periodicMinutes = 1,
+		})
+
+		ns.ScanCurrentCharacter = function(reason)
+			full_calls[#full_calls + 1] = reason
+			ctx.trigger_event(ns.EVENT.UPDATE_FACTION)
+			ctx.trigger_event(ns.EVENT.UPDATE_FACTION)
+			return scan_result("PeriodicCombat", 3)
+		end
+		ns.RefreshCurrentCharacterKnownReputations = function(reason)
+			known_calls[#known_calls + 1] = reason
+			return scan_result("PeriodicKnown", 3)
+		end
+
+		ctx.set_combat(true)
+		ctx.advance(60)
+		A.equal(#full_calls, 0)
+
+		ctx.set_combat(false)
+		ctx.trigger_event(ns.EVENT.PLAYER_REGEN_ENABLED)
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#full_calls, 1)
+		A.equal(full_calls[1], ns.SCAN_REASON.DELAYED)
+
+		ctx.advance(ns.SCAN_DELAY_SECONDS)
+		A.equal(#known_calls, 0)
+		A.equal(ns.PlayerStateEnsure().queuedRefresh, nil)
+	end)
+
+	runner:test("No Live Updates disables event-driven and periodic automatic refreshes", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		local frame = ctx.env.__frames[1]
+		local calls = {}
+
+		ctx.trigger_event(ns.EVENT.ADDON_LOADED, ns.ADDON_NAME)
+		ns.RefreshCurrentCharacterKnownReputations = function(reason)
+			calls[#calls + 1] = reason
+			return scan_result("Known", 1)
+		end
+		ns.ScanCurrentCharacter = function(reason)
+			calls[#calls + 1] = reason
+			return scan_result("Full", 1)
+		end
+
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = false,
+			updateOutOfCombat = true,
+			updatePeriodic = true,
+			periodicMinutes = 1,
+		})
+		ns.SetLiveUpdateOptions({
+			noLiveUpdates = true,
+		})
+
+		A.falsy(frame.__events[ns.EVENT.UPDATE_FACTION])
+		A.falsy(frame.__events[ns.EVENT.CHAT_MSG_COMBAT_FACTION_CHANGE])
+		A.falsy(frame.__events[ns.EVENT.MAJOR_FACTION_RENOWN_LEVEL_CHANGED])
+
+		ctx.trigger_event(ns.EVENT.UPDATE_FACTION)
+		ctx.advance(60)
+		A.equal(#calls, 0)
 	end)
 end

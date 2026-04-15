@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.1.1
+
+- Reduced cases where optional live reputation updates could trigger extra
+  follow-up scans even when your reputation had not actually changed.
+
+## 2.1.0
+
+- Added a Blizzard Settings AddOns page plus an in-window `Options` button for
+  configuring live reputation updates.
+- Restored optional live refresh modes for combat-delayed updates,
+  out-of-combat reputation changes, and periodic rescans while keeping `No Live
+  Updates` as the default public behavior.
+
+## 2.0.7
+
+- Removed automatic reputation rescans from zone, quest, combat-message, and
+  other reputation-change events to avoid in-session hitching.
+- Reputation data now refreshes automatically only when the character logs in
+  or the UI reloads, with manual refreshes still available through `/reps scan`.
+
 ## 2.0.6
 
 - Fixed combat reputation updates that could miss newly encountered factions

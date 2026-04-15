@@ -13,6 +13,9 @@ ns.SCAN_DELAY_SECONDS = 0.8
 ns.KNOWN_REFRESH_BATCH_DELAY_SECONDS = 0
 ns.KNOWN_REFRESH_RESOLVE_BATCH_SIZE = 25
 ns.KNOWN_REFRESH_SPECIAL_BATCH_SIZE = 20
+ns.LIVE_UPDATE_PERIODIC_MINUTES_DEFAULT = 15
+ns.LIVE_UPDATE_PERIODIC_MINUTES_MIN = 1
+ns.LIVE_UPDATE_PERIODIC_MINUTES_MAX = 240
 ns.DEBUG_LOG_MAX_LINES = 400
 ns.DEBUG_LOG_NAME_LIMIT = 12
 ns.FACTION_HEADER_EXPAND_LIMIT = 500
@@ -49,6 +52,12 @@ ns.SORT_KEY = {
 	CLOSEST_TO_NEXT = "closestToNext",
 	NAME = "name",
 	EXPANSION = "expansion",
+}
+
+ns.REFRESH_MODE = {
+	FULL = "full",
+	KNOWN = "known",
+	FACTIONS = "factions",
 }
 
 ns.SORT_OPTIONS = {
@@ -117,6 +126,7 @@ ns.TEXT = {
 	CLEAR_LOG = "Clear Log",
 	CLEAR_ALL_DATA = "Clear All Data",
 	SCAN_AND_LOG = "Scan & Log",
+	OPTIONS = "Options",
 	FORGET_ALT = "Forget Alt",
 	FORGET = "Forget",
 	FORGET_ALT_TITLE = "Forget Alt",
@@ -129,6 +139,14 @@ ns.TEXT = {
 	WARBAND = "Warband",
 	SEARCH = "Search",
 	SCAN_THIS_ALT = "Scan This Alt",
+	OPTIONS_TITLE = "Rep Sheet Options",
+	LIVE_UPDATES_TITLE = "Live Reputation Updates",
+	LIVE_UPDATES_WARNING = "These updates may cause small lag spikes.",
+	LIVE_UPDATES_NONE = "No Live Updates (Manual or on login only)",
+	LIVE_UPDATES_AFTER_COMBAT = "Update whenever combat ends if a reputation change was detected during combat",
+	LIVE_UPDATES_OUT_OF_COMBAT = "Update whenever a reputation change occurs outside of combat",
+	LIVE_UPDATES_EVERY = "Update every",
+	LIVE_UPDATES_MINUTES = "minutes",
 	EXPANSION = "Expansion",
 	SORT = "Sort",
 	FILTER = "Filter",

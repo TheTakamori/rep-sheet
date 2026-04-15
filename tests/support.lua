@@ -19,6 +19,7 @@ local DEFAULT_FILES = {
 	"Core/FactionFilters.lua",
 	"Core/FactionTreeView.lua",
 	"Core/ReputationEventHints.lua",
+	"Core/LiveUpdateController.lua",
 	"Core/Bootstrap.lua",
 }
 
@@ -301,12 +302,229 @@ local function create_test_env()
 	local env = {}
 	setmetatable(env, { __index = _G })
 
+	local function nop()
+	end
+
+	local function set_shown(frame, shown)
+		local was_shown = frame.__shown == true
+		shown = shown == true
+		frame.__shown = shown
+		if shown == was_shown then
+			return
+		end
+		local script_name = shown and "OnShow" or "OnHide"
+		local handler = frame.__scripts[script_name]
+		if type(handler) == "function" then
+			handler(frame)
+		end
+	end
+
+	local function create_font_string()
+		local font_string = {
+			__text = "",
+		}
+
+		function font_string:SetPoint(...)
+			self.__point = { ... }
+		end
+
+		function font_string:SetText(text)
+			self.__text = tostring(text or "")
+		end
+
+		function font_string:GetText()
+			return self.__text
+		end
+
+		function font_string:SetTextColor(...)
+			self.__text_color = { ... }
+		end
+
+		font_string.SetJustifyH = nop
+		font_string.SetJustifyV = nop
+		font_string.SetWordWrap = nop
+		font_string.SetNonSpaceWrap = nop
+		font_string.SetMaxLines = nop
+		font_string.SetWidth = nop
+
+		return font_string
+	end
+
+	local function create_texture()
+		local texture = {}
+
+		function texture:SetAllPoints(...)
+			self.__all_points = { ... }
+		end
+
+		function texture:SetColorTexture(...)
+			self.__color = { ... }
+		end
+
+		texture.SetHorizTile = nop
+		texture.SetTexture = nop
+
+		return texture
+	end
+
+	local function create_frame_object(frame_name, parent, template)
+		local frame = {
+			__events = {},
+			__scripts = {},
+			__shown = false,
+			__enabled = true,
+			__text = "",
+			__checked = false,
+			__name = frame_name,
+			__template = template,
+			__parent = parent,
+		}
+
+		function frame:RegisterEvent(event_name)
+			self.__events[event_name] = true
+		end
+
+		function frame:UnregisterEvent(event_name)
+			self.__events[event_name] = nil
+		end
+
+		function frame:SetScript(script_name, handler)
+			self.__scripts[script_name] = handler
+		end
+
+		function frame:GetScript(script_name)
+			return self.__scripts[script_name]
+		end
+
+		function frame:IsShown()
+			return self.__shown
+		end
+
+		function frame:SetShown(shown)
+			set_shown(self, shown)
+		end
+
+		function frame:Show()
+			set_shown(self, true)
+		end
+
+		function frame:Hide()
+			set_shown(self, false)
+		end
+
+		function frame:SetEnabled(enabled)
+			self.__enabled = enabled == true
+		end
+
+		function frame:IsEnabled()
+			return self.__enabled ~= false
+		end
+
+		function frame:Enable()
+			self.__enabled = true
+		end
+
+		function frame:Disable()
+			self.__enabled = false
+		end
+
+		function frame:SetChecked(checked)
+			self.__checked = checked == true
+		end
+
+		function frame:GetChecked()
+			return self.__checked == true
+		end
+
+		function frame:SetText(text)
+			self.__text = tostring(text or "")
+		end
+
+		function frame:GetText()
+			return self.__text
+		end
+
+		function frame:SetStatusBarTexture()
+			self.__status_bar_texture = create_texture()
+		end
+
+		function frame:GetStatusBarTexture()
+			self.__status_bar_texture = self.__status_bar_texture or create_texture()
+			return self.__status_bar_texture
+		end
+
+		function frame:SetScrollChild(child)
+			self.__scroll_child = child
+		end
+
+		function frame:SetParent(next_parent)
+			self.__parent = next_parent
+		end
+
+		function frame:GetParent()
+			return self.__parent
+		end
+
+		function frame:GetName()
+			return self.__name
+		end
+
+		function frame:CreateFontString()
+			local child = create_font_string()
+			self.__font_strings = self.__font_strings or {}
+			self.__font_strings[#self.__font_strings + 1] = child
+			return child
+		end
+
+		function frame:CreateTexture()
+			local child = create_texture()
+			self.__textures = self.__textures or {}
+			self.__textures[#self.__textures + 1] = child
+			return child
+		end
+
+		frame.SetPoint = nop
+		frame.SetSize = nop
+		frame.SetWidth = nop
+		frame.SetHeight = nop
+		frame.SetFrameStrata = nop
+		frame.SetBackdrop = nop
+		frame.SetBackdropColor = nop
+		frame.SetBackdropBorderColor = nop
+		frame.EnableMouse = nop
+		frame.EnableMouseWheel = nop
+		frame.SetMovable = nop
+		frame.RegisterForDrag = nop
+		frame.StartMoving = nop
+		frame.StopMovingOrSizing = nop
+		frame.SetAlpha = nop
+		frame.SetAutoFocus = nop
+		frame.SetNumeric = nop
+		frame.SetMinMaxValues = nop
+		frame.SetStatusBarColor = nop
+		frame.SetJustifyH = nop
+		frame.SetJustifyV = nop
+		frame.ClearFocus = nop
+		frame.SetValue = nop
+		frame.SetHitRectInsets = nop
+
+		return frame
+	end
+
 	env._G = env
 	env.RepSheet = {}
 	env.RepSheetDB = {}
 	env.SlashCmdList = {}
 	env.C_Reputation = {}
 	env.C_MajorFactions = {}
+	env.UIParent = {}
+	env.UISpecialFrames = {}
+	env.__chat_messages = {}
+	env.DEFAULT_CHAT_FRAME = {
+		AddMessage = function(_, message)
+			env.__chat_messages[#env.__chat_messages + 1] = tostring(message)
+		end,
+	}
 	env.RAID_CLASS_COLORS = {
 		MAGE = { r = 0.25, g = 0.78, b = 0.92 },
 		PALADIN = { r = 0.96, g = 0.55, b = 0.73 },
@@ -316,6 +534,8 @@ local function create_test_env()
 	env.__frames = {}
 	env.__timers = {}
 	env.__next_timer_id = 0
+	env.__settings_categories = {}
+	env.__opened_settings_category = nil
 	env.__now = 1700000000
 	env.__inCombat = false
 	env.__player = {
@@ -443,37 +663,31 @@ local function create_test_env()
 		return env.C_AddOns.GetAddOnMetadata(addon_name, metadata_key)
 	end
 
-	env.CreateFrame = function()
-		local frame = {
-			__events = {},
-			__scripts = {},
-			__shown = false,
-		}
+	env.Settings = {
+		RegisterCanvasLayoutCategory = function(frame, name)
+			local category = {
+				frame = frame,
+				name = name,
+				id = #env.__settings_categories + 1,
+			}
 
-		function frame:RegisterEvent(event_name)
-			self.__events[event_name] = true
-		end
+			function category:GetID()
+				return self.id
+			end
 
-		function frame:SetScript(script_name, handler)
-			self.__scripts[script_name] = handler
-		end
+			env.__settings_categories[#env.__settings_categories + 1] = category
+			return category
+		end,
+		RegisterAddOnCategory = function(category)
+			env.__registered_addon_category = category
+		end,
+		OpenToCategory = function(category)
+			env.__opened_settings_category = category
+		end,
+	}
 
-		function frame:IsShown()
-			return self.__shown
-		end
-
-		function frame:SetShown(shown)
-			self.__shown = shown == true
-		end
-
-		function frame:Show()
-			self.__shown = true
-		end
-
-		function frame:Hide()
-			self.__shown = false
-		end
-
+	env.CreateFrame = function(_, frame_name, parent, template)
+		local frame = create_frame_object(frame_name, parent, template)
 		env.__frames[#env.__frames + 1] = frame
 		return frame
 	end

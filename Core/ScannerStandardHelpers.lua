@@ -133,13 +133,24 @@ local function getCollapseHeaderAPI()
 	return nil
 end
 
+local function beginFactionHeaderMutationSuppression()
+	local state = ns.PlayerStateEnsure and ns.PlayerStateEnsure() or nil
+	if not state then
+		return
+	end
+	state.suppressedUpdateFactionUntil = math.max(
+		ns.SafeNumber(state.suppressedUpdateFactionUntil, 0),
+		ns.SafeTime() + 2
+	)
+end
+
 local function noteFactionHeaderMutation()
 	local state = ns.PlayerStateEnsure and ns.PlayerStateEnsure() or nil
 	if not state then
 		return
 	end
+	beginFactionHeaderMutationSuppression()
 	state.suppressedUpdateFactionEvents = ns.SafeNumber(state.suppressedUpdateFactionEvents, 0) + 1
-	state.suppressedUpdateFactionUntil = ns.SafeTime() + 2
 end
 
 function helpers.expandAllHeaders()
@@ -160,6 +171,7 @@ function helpers.expandAllHeaders()
 			local row = helpers.getFactionDataByIndex(index)
 			if row and row.isHeader and row.isCollapsed then
 				collapsedHeaders[#collapsedHeaders + 1] = ns.NormalizeText(row.name)
+				beginFactionHeaderMutationSuppression()
 				local ok = pcall(expandHeader, index)
 				if ok then
 					noteFactionHeaderMutation()
@@ -183,6 +195,7 @@ function helpers.restoreCollapsedHeaders(collapsedHeaders)
 		for index = 1, count do
 			local row = helpers.getFactionDataByIndex(index)
 			if row and row.isHeader and not row.isCollapsed and ns.NormalizeText(row.name) == targetName then
+				beginFactionHeaderMutationSuppression()
 				local ok = pcall(collapseHeader, index)
 				if ok then
 					noteFactionHeaderMutation()
