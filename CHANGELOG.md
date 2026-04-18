@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.3.0
+
+- Added an `Alts` tab to the left pane that lists every scanned character with
+  search, sort (Name, Level, Class, Last Scanned), and filters for faction,
+  class, race, and profession.
+- Added an alt detail pane on the right that shows the alt's level, race,
+  class, professions, and full reputation list, with an Expansion filter and
+  a sort by Name or Level (Highest).
+- Decoupled the left and right panes so the left tabs only switch the alt or
+  faction list, while the right pane follows whatever was last selected.
+- Added cross-navigation: clicking an alt name in a faction's detail pane
+  switches the right pane to that alt, and clicking a faction in an alt's
+  reputation list switches the right pane to that faction.
+- The left-pane tab choice (Factions or Alts) is remembered across sessions.
+- Reduced repeated work when refreshing the alt panes by caching filtered and
+  sorted reputation results until the filters or saved data actually change.
+- Internal cleanup: split scan scheduling into a dedicated module, added
+  shared backdrop and dropdown helpers, and centralized hard-coded UI strings
+  and identifiers as constants.
+
 ## 2.2.0
 
 - Added a hover tooltip on the right-pane character rows showing the

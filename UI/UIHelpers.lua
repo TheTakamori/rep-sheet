@@ -62,6 +62,18 @@ function helpers.RegisterSpecialFrame(frame)
 	UISpecialFrames[#UISpecialFrames + 1] = frameName
 end
 
+function helpers.ApplyRowBackdrop(row, selected)
+	if not row then
+		return
+	end
+	row:SetBackdrop(ns.UI_BACKDROPS.ROW)
+	if selected then
+		helpers.ApplyBackdropColors(row, ns.UI_COLORS.ROW_SELECTED_BG, ns.UI_COLORS.ROW_SELECTED_BORDER)
+	else
+		helpers.ApplyBackdropColors(row, ns.UI_COLORS.ROW_BG, ns.UI_COLORS.ROW_BORDER)
+	end
+end
+
 function helpers.SetDropdownEnabled(dropdown, enabled)
 	if not dropdown then
 		return

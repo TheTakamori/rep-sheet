@@ -609,6 +609,168 @@ return function(runner, root)
 		A.contains(ns.GetLastDebugLine(), "Aly-Alpha")
 	end)
 
+	runner:test("InitDB seeds defaults for the alts view state", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		local db = ns.GetDB()
+		A.equal(db.ui.selectedCharacterKey, nil)
+		A.equal(db.ui.rightViewMode, ns.VIEW_MODE.FACTIONS)
+		A.equal(db.filters.leftViewMode, ns.VIEW_MODE.FACTIONS)
+		A.truthy(db.filters.alts)
+		A.equal(db.filters.alts.searchText, "")
+		A.equal(db.filters.alts.factionGroup, ns.ALT_FACTION_FILTER.ALL)
+		A.equal(db.filters.alts.classFile, ns.ALL_ALT_FILTER_KEY)
+		A.equal(db.filters.alts.raceFile, ns.ALL_ALT_FILTER_KEY)
+		A.equal(db.filters.alts.professionName, ns.ALL_ALT_FILTER_KEY)
+		A.equal(db.filters.alts.sortKey, ns.ALT_SORT_KEY.NAME)
+
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.FACTIONS)
+	end)
+
+	runner:test("InitDB sanitizes invalid view modes and unknown alt filter values", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ctx.env.RepSheetDB = {
+			version = ns.DB_SCHEMA_VERSION,
+			characters = {},
+			ui = {
+				rightViewMode = "totally-invalid",
+			},
+			filters = {
+				leftViewMode = "nope",
+				alts = {
+					factionGroup = "Bogus",
+					sortKey = "weird",
+					classFile = 0,
+				},
+			},
+		}
+		ns.InitDB()
+
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.FACTIONS)
+		local altFilters = ns.GetAltFilters()
+		A.equal(altFilters.factionGroup, ns.ALT_FACTION_FILTER.ALL)
+		A.equal(altFilters.sortKey, ns.ALT_SORT_KEY.NAME)
+		A.equal(altFilters.classFile, ns.ALL_ALT_FILTER_KEY)
+	end)
+
+	runner:test("SelectFaction and SelectCharacter update right view without changing left view", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SetLeftViewMode(ns.VIEW_MODE.ALTS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.ALTS)
+
+		ns.SelectFaction("123")
+		A.equal(ns.GetSelectedFactionKey(), "123")
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.ALTS, "left view must not change when selecting a faction")
+
+		ns.SelectCharacter("Alpha::Aly")
+		A.equal(ns.GetSelectedCharacterKey(), "Alpha::Aly")
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.ALTS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.ALTS, "left view must not change when selecting a character")
+
+		ns.SetLeftViewMode(ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.ALTS, "right view must not change when switching the left tab")
+	end)
+
+	runner:test("SetAltFilterValue invalidates cached alt results and resets list scroll", function()
+		local ctx = support.new_context(root, {
+			files = support.with_files({
+				"Core/AltsIndex.lua",
+				"Core/AltsFilters.lua",
+			}),
+		})
+		local ns = ctx.ns
+		ns.InitDB()
+
+		local runtime = ns.RuntimeEnsure()
+		runtime.altResultsSignature = "stale"
+		runtime.altResults = { "stale" }
+		runtime.altResultsTotal = 1
+		runtime.resetListScroll = false
+
+		ns.SetAltFilterValue("sortKey", ns.ALT_SORT_KEY.LEVEL_DESC)
+		A.equal(ns.GetAltFilterValue("sortKey"), ns.ALT_SORT_KEY.LEVEL_DESC)
+		A.truthy(runtime.resetListScroll)
+		A.equal(runtime.altResultsSignature, nil)
+		A.equal(runtime.altResults, nil)
+
+		ns.SetAltFilterValue("sortKey", "complete-garbage")
+		A.equal(ns.GetAltFilterValue("sortKey"), ns.ALT_SORT_KEY.NAME)
+	end)
+
+	runner:test("InitDB seeds defaults for the right-pane alt reputation filter and sort", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		local altRep = ns.GetAltRepFilters()
+		A.truthy(altRep)
+		A.equal(altRep.expansionKey, ns.ALL_EXPANSIONS_KEY)
+		A.equal(altRep.sortKey, ns.ALT_REP_SORT_KEY.NAME)
+	end)
+
+	runner:test("InitDB sanitizes invalid altRep filter values back to defaults", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ctx.env.RepSheetDB = {
+			version = ns.DB_SCHEMA_VERSION,
+			characters = {},
+			ui = {},
+			filters = {
+				altRep = {
+					expansionKey = false,
+					sortKey = "totally-bogus",
+				},
+			},
+		}
+		ns.InitDB()
+
+		local altRep = ns.GetAltRepFilters()
+		A.equal(altRep.expansionKey, ns.ALL_EXPANSIONS_KEY)
+		A.equal(altRep.sortKey, ns.ALT_REP_SORT_KEY.NAME)
+	end)
+
+	runner:test("SetAltRepFilterValue stores valid keys and rejects unknown sort keys", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SetAltRepFilterValue("expansionKey", "tww")
+		A.equal(ns.GetAltRepFilterValue("expansionKey"), "tww")
+
+		ns.SetAltRepFilterValue("sortKey", ns.ALT_REP_SORT_KEY.LEVEL_DESC)
+		A.equal(ns.GetAltRepFilterValue("sortKey"), ns.ALT_REP_SORT_KEY.LEVEL_DESC)
+
+		ns.SetAltRepFilterValue("sortKey", "garbage")
+		A.equal(ns.GetAltRepFilterValue("sortKey"), ns.ALT_REP_SORT_KEY.NAME)
+	end)
+
+	runner:test("ClearStoredReputationData wipes the alts selection and resets the right view", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SelectCharacter("Alpha::Aly")
+		ns.SetLeftViewMode(ns.VIEW_MODE.ALTS)
+		A.equal(ns.GetSelectedCharacterKey(), "Alpha::Aly")
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.ALTS)
+
+		ns.ClearStoredReputationData()
+
+		A.equal(ns.GetSelectedCharacterKey(), nil)
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.ALTS, "left view persists across data wipes")
+	end)
+
 	runner:test("OpenFactionInGameUI prefers renown APIs and falls back through reputation views", function()
 		local ctx = support.new_context(root, { files = DELETE_AND_UI_FILES })
 		local ns = ctx.ns

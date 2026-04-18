@@ -176,7 +176,7 @@ end
 
 local function extractNeighborhood(row)
 	local normalizedName = ns.NormalizeSearchText(row.name)
-	if normalizedName == ns.NormalizeSearchText("Neighborhood Initiative") then
+	if normalizedName == ns.NormalizeSearchText(ns.NEIGHBORHOOD_INITIATIVE_NAME) then
 		return {
 			repType = ns.REP_TYPE.NEIGHBORHOOD,
 			isAccountWide = true,

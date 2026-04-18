@@ -82,13 +82,13 @@ function ns.GetFilteredFactionResults()
 	local searchText = ns.NormalizeSearchText(filters.searchText)
 	local sortKey = filters.sortKey or ns.SORT_KEY.BEST_PROGRESS
 	local statusKey = filters.statusKey or ns.FILTER_STATUS.ALL
-	local signature = table.concat({
+	local signature = ns.JoinSignature({
 		expansionKey,
 		searchText,
 		sortKey,
 		statusKey,
-		tostring(index.totalCharacters),
-	}, "\31")
+		index.totalCharacters,
+	})
 
 	if runtime.filteredSignature == signature and runtime.filteredResults then
 		return runtime.filteredResults, runtime.filteredTotalCharacters or 0

@@ -66,10 +66,10 @@ function ns.FormatStatusWithProgress(statusText, progressText)
 	if progressText == "" then
 		return statusText
 	end
-	if string.find(statusText, ":", 1, true) then
-		return string.format("%s  %s", statusText, progressText)
+	if string.find(statusText, ns.SEPARATOR.STATUS_PROGRESS_PUNCT, 1, true) then
+		return statusText .. ns.SEPARATOR.META_PARTS .. progressText
 	end
-	return string.format("%s: %s", statusText, progressText)
+	return string.format(ns.FORMAT.DETAIL_STATUS_PROGRESS, statusText, progressText)
 end
 
 function ns.DeriveProgressValues(currentStanding, bottomValue, topValue)

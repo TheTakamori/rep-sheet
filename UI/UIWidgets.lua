@@ -50,6 +50,24 @@ function widgets.ConfigureDropdown(dropdown, width)
 	end
 end
 
+function widgets.SetDropdownText(dropdown, text)
+	if not dropdown or not UIDropDownMenu_SetText then
+		return
+	end
+	UIDropDownMenu_SetText(dropdown, text)
+end
+
+function widgets.CreateBackdropPane(parent, backdrop, bgColor, borderColor)
+	local pane = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+	if backdrop then
+		pane:SetBackdrop(backdrop)
+	end
+	if bgColor or borderColor then
+		ui.ApplyBackdropColors(pane, bgColor, borderColor)
+	end
+	return pane
+end
+
 function widgets.InitializeChoiceDropdown(dropdown, options, getSelectedValue, onSelect, getText, getValue)
 	if not dropdown or not UIDropDownMenu_Initialize or not UIDropDownMenu_CreateInfo then
 		return

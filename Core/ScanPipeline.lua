@@ -24,7 +24,7 @@ end
 local function logTargetedRefreshSummary(rows, stats)
 	local safeStats = type(stats) == "table" and stats or createTargetedRefreshStats()
 	ns.DebugLog(string.format(
-		"Targeted refresh resolved=%d requested=%d standard=%d major=%d unresolved=%d names=%s",
+		ns.LOG.TARGETED_REFRESH_SUMMARY,
 		#(type(rows) == "table" and rows or {}),
 		ns.SafeNumber(safeStats.requestedCount, 0),
 		ns.SafeNumber(safeStats.standardCount, 0),

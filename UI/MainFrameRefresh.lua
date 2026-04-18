@@ -4,18 +4,14 @@ local state = ns.UI_MainFrameState
 local layout = ns.UI_MAIN_LAYOUT
 local rowLayout = ns.UI_FACTION_ROW_LAYOUT
 
+local widgets = ns.UIWidgets
+
 local function syncDropdownText(dropdown, options, selectedKey, fallbackLabel)
-	if not UIDropDownMenu_SetText then
-		return
-	end
-	UIDropDownMenu_SetText(dropdown, ns.GetOptionLabel(options, selectedKey, fallbackLabel))
+	widgets.SetDropdownText(dropdown, ns.GetOptionLabel(options, selectedKey, fallbackLabel))
 end
 
 local function syncExpansionDropdown(dropdown, selectedKey)
-	if not UIDropDownMenu_SetText then
-		return
-	end
-	UIDropDownMenu_SetText(dropdown, ns.ExpansionLabelForKey(selectedKey or ns.ALL_EXPANSIONS_KEY))
+	widgets.SetDropdownText(dropdown, ns.ExpansionLabelForKey(selectedKey or ns.ALL_EXPANSIONS_KEY))
 end
 
 local function filteredContainsFaction(results, factionKey)
@@ -68,19 +64,19 @@ local function ensureFactionRows(count)
 			rowHeight = ns.UI_LIST_ROW_HEIGHT,
 			onClick = function(factionKey)
 				local bucket = ns.GetFactionBucketByKey(factionKey)
-				if bucket and bucket.childFactionKeys and #bucket.childFactionKeys > 0 and ns.GetSelectedFactionKey() == factionKey then
+				if bucket and bucket.childFactionKeys and #bucket.childFactionKeys > 0 and ns.GetSelectedFactionKey() == factionKey and ns.GetRightViewMode() == ns.VIEW_MODE.FACTIONS then
 					ns.ToggleFactionCollapsed(factionKey)
 					ns.RefreshMainFrame()
 					return
 				end
-				ns.SetSelectedFactionKey(factionKey)
+				ns.SelectFaction(factionKey)
 				ns.RefreshMainFrame()
 			end,
 			onToggleCollapse = function(factionKey)
 				local collapsed = ns.ToggleFactionCollapsed(factionKey)
 				local selectedKey = ns.GetSelectedFactionKey()
 				if collapsed and selectedKey and ns.IsFactionDescendantOf(selectedKey, factionKey) then
-					ns.SetSelectedFactionKey(factionKey)
+					ns.SelectFaction(factionKey)
 				end
 				ns.RefreshMainFrame()
 			end,
@@ -120,26 +116,17 @@ local function relayoutFactionRows(totalRows)
 	end
 end
 
-function ns.RefreshMainFrame()
-	local main = state.main
-	if not main then
-		return
-	end
-
-	local runtime = ns.RuntimeEnsure()
-	local filters = ns.GetFilters()
+local function refreshFactionLeftPane(main, filters, runtime)
 	local filtered, totalCharacters = ns.GetFilteredFactionResults()
 	local visibleRows = ns.GetVisibleFactionRows()
 	local total = #filtered
 
-	if main.UpdateForgetAltButtonState then
-		main:UpdateForgetAltButtonState()
-	end
-
-	local selectedKey = ns.GetSelectedFactionKey()
-	if not filteredContainsFaction(visibleRows, selectedKey) then
-		selectedKey = visibleRows[1] and visibleRows[1].factionKey or nil
-		ns.SetSelectedFactionKey(selectedKey)
+	if ns.GetRightViewMode() == ns.VIEW_MODE.FACTIONS then
+		local selectedKey = ns.GetSelectedFactionKey()
+		if not filteredContainsFaction(visibleRows, selectedKey) then
+			selectedKey = visibleRows[1] and visibleRows[1].factionKey or nil
+			ns.SetSelectedFactionKey(selectedKey)
+		end
 	end
 
 	if main.expansionDrop then
@@ -163,6 +150,7 @@ function ns.RefreshMainFrame()
 	ensureFactionRows(#visibleRows)
 	relayoutFactionRows(#visibleRows)
 
+	local selectedKey = ns.GetSelectedFactionKey()
 	for index = 1, #state.rowFrames do
 		local row = state.rowFrames[index]
 		local bucket = visibleRows[index]
@@ -175,8 +163,54 @@ function ns.RefreshMainFrame()
 		main.countLabel:SetText(string.format(ns.FORMAT.COUNT_RESULTS, total, totalCharacters or 0))
 	end
 
-	local selectedBucket = selectedKey and ns.GetFactionBucketByKey(selectedKey) or nil
-	main.characterPane:SetFaction(selectedBucket)
+	clampFactionScroll(runtime.resetListScroll == true)
+end
+
+local function refreshRightPane(main)
+	local rightMode = ns.GetRightViewMode()
+	if rightMode == ns.VIEW_MODE.ALTS then
+		ns.UI_RefreshAltsPane(main.altsPane)
+	else
+		local selectedKey = ns.GetSelectedFactionKey()
+		local selectedBucket = selectedKey and ns.GetFactionBucketByKey(selectedKey) or nil
+		if main.characterPane then
+			main.characterPane:SetFaction(selectedBucket)
+		end
+	end
+end
+
+function ns.RefreshMainFrame()
+	local main = state.main
+	if not main then
+		return
+	end
+
+	local runtime = ns.RuntimeEnsure()
+	local filters = ns.GetFilters()
+
+	if main.UpdateForgetAltButtonState then
+		main:UpdateForgetAltButtonState()
+	end
+
+	local debugShown = main.debugPane and main.debugPane:IsShown()
+
+	if not debugShown then
+		local leftMode = ns.GetLeftViewMode()
+		if main.ApplyLeftViewMode then
+			main:ApplyLeftViewMode(leftMode)
+		end
+		if main.ApplyRightViewMode then
+			main:ApplyRightViewMode(ns.GetRightViewMode())
+		end
+
+		if leftMode == ns.VIEW_MODE.ALTS then
+			ns.UI_RefreshAltsLeftPane(main.altsLeftPane, { resetScroll = runtime.resetListScroll == true })
+		else
+			refreshFactionLeftPane(main, filters, runtime)
+		end
+
+		refreshRightPane(main)
+	end
 
 	local db = ns.GetDB()
 	local lastScanLabel = db.lastScanAt and db.lastScanAt > 0 and ns.FormatLastSeen(db.lastScanAt) or ns.TEXT.NEVER
@@ -185,10 +219,9 @@ function ns.RefreshMainFrame()
 	main.statusLabel:SetText(string.format(ns.FORMAT.STATUS_FOOTER, lastScanLabel, scanSource))
 	main.versionLabel:SetText(string.format(ns.FORMAT.VERSION_FOOTER, ns.GetAddonVersion()))
 
-	if main.debugPane and main.debugPane:IsShown() and main.debugPane.Refresh then
+	if debugShown and main.debugPane.Refresh then
 		main.debugPane:Refresh()
 	end
 
-	clampFactionScroll(runtime.resetListScroll == true)
 	runtime.resetListScroll = false
 end

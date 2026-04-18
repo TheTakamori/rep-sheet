@@ -31,13 +31,7 @@ local function layoutHierarchy(row, depth)
 end
 
 local function setBackdrop(row, selected)
-	row:SetBackdrop(ns.UI_BACKDROPS.ROW)
-
-	if selected then
-		ui.ApplyBackdropColors(row, colors.ROW_SELECTED_BG, colors.ROW_SELECTED_BORDER)
-	else
-		ui.ApplyBackdropColors(row, colors.ROW_BG, colors.ROW_BORDER)
-	end
+	ui.ApplyRowBackdrop(row, selected)
 end
 
 local function setExpandButtonState(button, collapsed)
@@ -201,7 +195,12 @@ function ns.UI_CreateFactionRow(parent, index, cfg)
 	widgets.ApplyHitRectInsets(favoriteBtn, ns.UI_FAVORITE_BUTTON_HIT_INSETS)
 	favoriteBtn.highlight = favoriteBtn:CreateTexture(nil, "HIGHLIGHT")
 	favoriteBtn.highlight:SetAllPoints()
-	favoriteBtn.highlight:SetColorTexture(1, 1, 1, 0.06)
+	favoriteBtn.highlight:SetColorTexture(
+		ns.UI_FAVORITE_HIGHLIGHT_COLOR[1],
+		ns.UI_FAVORITE_HIGHLIGHT_COLOR[2],
+		ns.UI_FAVORITE_HIGHLIGHT_COLOR[3],
+		ns.UI_FAVORITE_HIGHLIGHT_COLOR[4]
+	)
 	favoriteBtn.icon = favoriteBtn:CreateTexture(nil, "OVERLAY")
 	favoriteBtn.icon:SetSize(layout.FAVORITE_WIDTH, layout.FAVORITE_HEIGHT)
 	favoriteBtn.icon:SetPoint("CENTER", favoriteBtn, "CENTER", 0, 0)

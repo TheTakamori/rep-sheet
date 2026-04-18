@@ -8,6 +8,13 @@ which character has the reputation you need right now?
 
 - Shows the best progress for each faction in a single list.
 - Compares all known characters for a selected faction.
+- Includes an `Alts` view that lists every scanned character with search,
+  sort, and filters for faction, class, race, and profession.
+- Provides per-alt detail pages with the alt's level, race, class,
+  professions, and full reputation list, including an expansion filter and a
+  sort by Name or Level (Highest).
+- Lets you cross-navigate between faction and alt views by clicking entries
+  in either detail pane.
 - Handles warband reputations and per-character reputations.
 - Preserves faction hierarchy where Blizzard exposes real parent-child data.
 - Adds a movable minimap icon for quick access.
@@ -50,7 +57,7 @@ This project is released as `All Rights Reserved`.
 ## Project Metadata
 
 The source metadata and release notes in this tree are current through
-`2.2.0`.
+`2.3.0`.
 
 The following public listing assets still need final values when the
 CurseForge project page is refreshed:

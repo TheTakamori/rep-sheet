@@ -2,7 +2,7 @@
 ## Title: Rep Sheet
 ## Notes: Browse reputation progress across your alts with /reps.
 ## Author: Takamori
-## Version: 2.2.0
+## Version: 2.3.0
 ## IconTexture: Interface\AddOns\RepSheet\Media\Icons\RepSheetAddonIcon
 ## SavedVariables: RepSheetDB
 
@@ -33,20 +33,30 @@ Core/Index.lua
 Core/FactionFilters.lua
 Core/FactionTree.lua
 Core/FactionTreeView.lua
+Core/AltsIndex.lua
+Core/AltsFilters.lua
+Core/AltRepFilters.lua
 Core/OpenFactionUI.lua
+Core/ScanScheduler.lua
 UI/UIConstants.lua
 UI/UIHelpers.lua
 UI/UIProgressBar.lua
 UI/UIWidgets.lua
 UI/MinimapButton.lua
 UI/ListRow.lua
+UI/DetailRow.lua
 UI/CharacterPane.lua
+UI/AltsListRow.lua
+UI/AltsLeftPane.lua
+UI/AltsPane.lua
 UI/ForgetAltDialog.lua
 UI/DebugPane.lua
 UI/MainFramePosition.lua
 UI/MainFrameState.lua
 UI/MainFrameRefresh.lua
+UI/MainFrameAltsRefresh.lua
 UI/MainFrameSearch.lua
 UI/OptionsPanel.lua
 UI/MainFrame.lua
+UI/SlashCommands.lua
 Core/Bootstrap.lua

@@ -686,6 +686,40 @@ return function(runner, root)
 		A.equal(ns.PlayerStateEnsure().queuedRefresh, nil)
 	end)
 
+	runner:test("Cross navigation: clicking an alt name pivots only the right pane to the alts view", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SetLeftViewMode(ns.VIEW_MODE.FACTIONS)
+		ns.SelectFaction("100")
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.FACTIONS)
+
+		ns.SelectCharacter("Alpha::Aly")
+		A.equal(ns.GetSelectedCharacterKey(), "Alpha::Aly")
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.ALTS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.FACTIONS, "left tab does not switch when an alt name is clicked")
+		A.equal(ns.GetSelectedFactionKey(), "100", "previously selected faction key is retained for later return")
+	end)
+
+	runner:test("Cross navigation: clicking a faction row from the alts pane pivots only the right pane back", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SetLeftViewMode(ns.VIEW_MODE.ALTS)
+		ns.SelectCharacter("Alpha::Aly")
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.ALTS)
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.ALTS)
+
+		ns.SelectFaction("200")
+		A.equal(ns.GetSelectedFactionKey(), "200")
+		A.equal(ns.GetRightViewMode(), ns.VIEW_MODE.FACTIONS)
+		A.equal(ns.GetLeftViewMode(), ns.VIEW_MODE.ALTS, "left tab does not switch when a faction row is clicked")
+		A.equal(ns.GetSelectedCharacterKey(), "Alpha::Aly", "previously selected alt key is retained")
+	end)
+
 	runner:test("No Live Updates disables event-driven and periodic automatic refreshes", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns

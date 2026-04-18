@@ -26,6 +26,64 @@ local function sanitizeStatusKey(statusKey)
 	return statusKey
 end
 
+local function sanitizeViewMode(viewMode)
+	viewMode = ns.SafeString(viewMode, ns.VIEW_MODE.FACTIONS)
+	if viewMode ~= ns.VIEW_MODE.FACTIONS and viewMode ~= ns.VIEW_MODE.ALTS then
+		return ns.VIEW_MODE.FACTIONS
+	end
+	return viewMode
+end
+
+local function sanitizeAltFactionFilter(value)
+	value = ns.SafeString(value, ns.ALT_FACTION_FILTER.ALL)
+	if value ~= ns.ALT_FACTION_FILTER.ALL
+		and value ~= ns.ALT_FACTION_FILTER.ALLIANCE
+		and value ~= ns.ALT_FACTION_FILTER.HORDE
+		and value ~= ns.ALT_FACTION_FILTER.NEUTRAL then
+		return ns.ALT_FACTION_FILTER.ALL
+	end
+	return value
+end
+
+local function sanitizeAltSortKey(value)
+	value = ns.SafeString(value, ns.ALT_SORT_KEY.NAME)
+	if value ~= ns.ALT_SORT_KEY.NAME
+		and value ~= ns.ALT_SORT_KEY.LEVEL_DESC
+		and value ~= ns.ALT_SORT_KEY.CLASS
+		and value ~= ns.ALT_SORT_KEY.LAST_SCAN_DESC then
+		return ns.ALT_SORT_KEY.NAME
+	end
+	return value
+end
+
+local function sanitizeAltFilters(filters)
+	filters = type(filters) == "table" and filters or {}
+	return {
+		searchText = ns.SafeString(filters.searchText),
+		factionGroup = sanitizeAltFactionFilter(filters.factionGroup),
+		classFile = ns.SafeString(filters.classFile, ns.ALL_ALT_FILTER_KEY),
+		raceFile = ns.SafeString(filters.raceFile, ns.ALL_ALT_FILTER_KEY),
+		professionName = ns.SafeString(filters.professionName, ns.ALL_ALT_FILTER_KEY),
+		sortKey = sanitizeAltSortKey(filters.sortKey),
+	}
+end
+
+local function sanitizeAltRepSortKey(value)
+	value = ns.SafeString(value, ns.ALT_REP_SORT_KEY.NAME)
+	if value ~= ns.ALT_REP_SORT_KEY.NAME and value ~= ns.ALT_REP_SORT_KEY.LEVEL_DESC then
+		return ns.ALT_REP_SORT_KEY.NAME
+	end
+	return value
+end
+
+local function sanitizeAltRepFilters(filters)
+	filters = type(filters) == "table" and filters or {}
+	return {
+		expansionKey = ns.SafeString(filters.expansionKey, ns.ALL_EXPANSIONS_KEY),
+		sortKey = sanitizeAltRepSortKey(filters.sortKey),
+	}
+end
+
 local function sanitizeLiveUpdateOptions(options)
 	options = type(options) == "table" and options or {}
 
@@ -144,11 +202,29 @@ function ns.InvalidateFilteredResults()
 	ns.InvalidateVisibleRows()
 end
 
+function ns.InvalidateAltResults()
+	local runtime = ns.RuntimeEnsure()
+	runtime.altResultsSignature = nil
+	runtime.altResults = nil
+	runtime.altResultsTotal = nil
+end
+
+function ns.InvalidateAltRepResults()
+	local runtime = ns.RuntimeEnsure()
+	runtime.altRepResultsSignature = nil
+	runtime.altRepResults = nil
+	runtime.altRepResultsTotal = nil
+end
+
 function ns.MarkIndexDirty()
 	local runtime = ns.RuntimeEnsure()
 	runtime.indexDirty = true
 	runtime.index = nil
+	runtime.altsIndex = nil
+	runtime.altsIndexDirty = true
 	ns.InvalidateFilteredResults()
+	ns.InvalidateAltResults()
+	ns.InvalidateAltRepResults()
 end
 
 function ns.ResetMainPage()
@@ -178,6 +254,8 @@ function ns.InitDB()
 	local defaultFramePosition = ns.DEFAULT_MAIN_FRAME_POSITION
 
 	ui.selectedFactionKey = ui.selectedFactionKey or nil
+	ui.selectedCharacterKey = ui.selectedCharacterKey or nil
+	ui.rightViewMode = sanitizeViewMode(ui.rightViewMode)
 	ui.mainFrame = ui.mainFrame or {
 		point = defaultFramePosition.point,
 		relativePoint = defaultFramePosition.relativePoint,
@@ -191,6 +269,9 @@ function ns.InitDB()
 	filters.expansionKey = ns.SafeString(filters.expansionKey, ns.ALL_EXPANSIONS_KEY)
 	filters.sortKey = ns.SafeString(filters.sortKey, ns.SORT_KEY.BEST_PROGRESS)
 	filters.statusKey = sanitizeStatusKey(filters.statusKey)
+	filters.leftViewMode = sanitizeViewMode(filters.leftViewMode)
+	filters.alts = sanitizeAltFilters(filters.alts)
+	filters.altRep = sanitizeAltRepFilters(filters.altRep)
 	options.liveUpdates = sanitizeLiveUpdateOptions(options.liveUpdates)
 
 	db.lastScanAt = ns.SafeNumber(db.lastScanAt, 0)
@@ -209,6 +290,8 @@ function ns.ClearStoredReputationData()
 	db.lastScanAt = 0
 	db.lastScanCharacter = ""
 	ui.selectedFactionKey = nil
+	ui.selectedCharacterKey = nil
+	ui.rightViewMode = ns.VIEW_MODE.FACTIONS
 
 	local runtime = ns.RuntimeEnsure()
 	runtime.collapsedFactionKeys = {}
@@ -251,6 +334,113 @@ end
 
 function ns.SetSelectedFactionKey(factionKey)
 	RepSheetDB.ui.selectedFactionKey = factionKey
+end
+
+function ns.GetSelectedCharacterKey()
+	local ui = RepSheetDB.ui
+	return ui and ui.selectedCharacterKey or nil
+end
+
+function ns.SetSelectedCharacterKey(characterKey)
+	RepSheetDB.ui.selectedCharacterKey = characterKey
+end
+
+function ns.GetLeftViewMode()
+	local filters = RepSheetDB.filters
+	return sanitizeViewMode(filters and filters.leftViewMode)
+end
+
+function ns.SetLeftViewMode(viewMode)
+	local filters = ensureTable(RepSheetDB, "filters")
+	local sanitized = sanitizeViewMode(viewMode)
+	if filters.leftViewMode == sanitized then
+		return false
+	end
+	filters.leftViewMode = sanitized
+	ns.RuntimeEnsure().resetListScroll = true
+	return true
+end
+
+function ns.GetRightViewMode()
+	local ui = RepSheetDB.ui
+	return sanitizeViewMode(ui and ui.rightViewMode)
+end
+
+function ns.SelectFaction(factionKey)
+	local ui = ensureTable(RepSheetDB, "ui")
+	ui.selectedFactionKey = factionKey
+	ui.rightViewMode = ns.VIEW_MODE.FACTIONS
+end
+
+function ns.SelectCharacter(characterKey)
+	local ui = ensureTable(RepSheetDB, "ui")
+	ui.selectedCharacterKey = characterKey
+	ui.rightViewMode = ns.VIEW_MODE.ALTS
+end
+
+function ns.GetAltFilters()
+	local filters = ensureTable(RepSheetDB, "filters")
+	filters.alts = sanitizeAltFilters(filters.alts)
+	return filters.alts
+end
+
+function ns.GetAltFilterValue(key)
+	local altFilters = ns.GetAltFilters()
+	return altFilters and altFilters[key]
+end
+
+function ns.SetAltFilterValue(key, value)
+	local altFilters = ns.GetAltFilters()
+	if not altFilters then
+		return
+	end
+
+	if key == "factionGroup" then
+		value = sanitizeAltFactionFilter(value)
+	elseif key == "sortKey" then
+		value = sanitizeAltSortKey(value)
+	elseif key == "searchText" then
+		value = ns.SafeString(value)
+	elseif key == "classFile" or key == "raceFile" or key == "professionName" then
+		value = ns.SafeString(value, ns.ALL_ALT_FILTER_KEY)
+	end
+
+	if altFilters[key] == value then
+		return
+	end
+	altFilters[key] = value
+	ns.RuntimeEnsure().resetListScroll = true
+	ns.InvalidateAltResults()
+end
+
+function ns.GetAltRepFilters()
+	local filters = ensureTable(RepSheetDB, "filters")
+	filters.altRep = sanitizeAltRepFilters(filters.altRep)
+	return filters.altRep
+end
+
+function ns.GetAltRepFilterValue(key)
+	local altRepFilters = ns.GetAltRepFilters()
+	return altRepFilters and altRepFilters[key]
+end
+
+function ns.SetAltRepFilterValue(key, value)
+	local altRepFilters = ns.GetAltRepFilters()
+	if not altRepFilters then
+		return
+	end
+
+	if key == "sortKey" then
+		value = sanitizeAltRepSortKey(value)
+	elseif key == "expansionKey" then
+		value = ns.SafeString(value, ns.ALL_EXPANSIONS_KEY)
+	end
+
+	if altRepFilters[key] == value then
+		return
+	end
+	altRepFilters[key] = value
+	ns.InvalidateAltRepResults()
 end
 
 function ns.GetMinimapButtonAngle()

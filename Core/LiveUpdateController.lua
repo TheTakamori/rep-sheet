@@ -169,12 +169,12 @@ function ns.HandleLiveUpdateEvent(event, ...)
 			factionName = ns.SafeString(resolvedFactionName)
 		end
 		if factionName ~= "" then
-			triggerLabel = "reputation-change: " .. factionName
+			triggerLabel = string.format(ns.FORMAT.LIVE_TRIGGER_REPUTATION_CHANGE, factionName)
 		end
 	elseif event == EVENT.MAJOR_FACTION_RENOWN_LEVEL_CHANGED then
 		local factionName = resolveFactionNameByID(ns.SafeNumber((...), 0))
 		if factionName ~= "" then
-			triggerLabel = "reputation-change: " .. factionName
+			triggerLabel = string.format(ns.FORMAT.LIVE_TRIGGER_REPUTATION_CHANGE, factionName)
 		end
 	end
 	if not (reason and mode and ns.RequestReputationScan) then

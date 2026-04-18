@@ -4,8 +4,27 @@ local state = ns.UI_MainFrameState
 local colors = ns.UI_COLORS
 local layout = ns.UI_MAIN_LAYOUT
 local debugLayout = ns.UI_DEBUG_PANE_LAYOUT
+local tabLayout = ns.UI_TAB_LAYOUT
 local ui = ns.UIHelpers
 local widgets = ns.UIWidgets
+
+local function createTabButton(parent, text)
+	local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	button:SetSize(tabLayout.WIDTH, tabLayout.HEIGHT)
+	button:SetText(text)
+	return button
+end
+
+local function applyTabSelectionVisual(button, selected)
+	if not button then
+		return
+	end
+	if selected then
+		button:Disable()
+	else
+		button:Enable()
+	end
+end
 
 function ns.CreateMainFrame()
 	if state.main then
@@ -89,12 +108,27 @@ function ns.CreateMainFrame()
 	info:SetText(ns.TEXT.MAIN_INFO)
 	ui.ApplyTextColor(info, colors.TEXT_INFO)
 
-	local leftPane = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+	local factionsTab = createTabButton(frame, ns.TEXT.TAB_FACTIONS)
+	factionsTab:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", ns.UI_FRAME_SIDE_INSET, ns.UI_FRAME_TOP_OFFSET + tabLayout.BOTTOM_PADDING)
+	frame.factionsTab = factionsTab
+
+	local altsTab = createTabButton(frame, ns.TEXT.TAB_ALTS)
+	altsTab:SetPoint("LEFT", factionsTab, "RIGHT", tabLayout.GAP, 0)
+	frame.altsTab = altsTab
+
+	local leftPane = ns.UIWidgets.CreateBackdropPane(frame, ns.UI_BACKDROPS.PANE, colors.PANE_BG, colors.PANE_BORDER)
 	leftPane:SetPoint("TOPLEFT", frame, "TOPLEFT", ns.UI_FRAME_SIDE_INSET, ns.UI_FRAME_TOP_OFFSET)
 	leftPane:SetSize(ns.UI_PANE_WIDTH, ns.UI_FRAME_HEIGHT - ns.UI_PANE_HEIGHT_TRIM)
-	leftPane:SetBackdrop(ns.UI_BACKDROPS.PANE)
-	ui.ApplyBackdropColors(leftPane, colors.PANE_BG, colors.PANE_BORDER)
 	frame.leftPane = leftPane
+
+	factionsTab:SetScript("OnClick", function()
+		ns.SetLeftViewMode(ns.VIEW_MODE.FACTIONS)
+		ns.RefreshMainFrame()
+	end)
+	altsTab:SetScript("OnClick", function()
+		ns.SetLeftViewMode(ns.VIEW_MODE.ALTS)
+		ns.RefreshMainFrame()
+	end)
 
 	local searchLabel = leftPane:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	searchLabel:SetPoint("TOPLEFT", leftPane, "TOPLEFT", layout.SEARCH_LABEL_LEFT, layout.SEARCH_LABEL_TOP)
@@ -230,6 +264,37 @@ function ns.CreateMainFrame()
 	end
 	frame.characterPane = characterPane
 
+	local altsLeftPane = ns.UI_CreateAltsLeftPane(frame)
+	altsLeftPane:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 0, 0)
+	altsLeftPane:SetPoint("BOTTOMRIGHT", leftPane, "BOTTOMRIGHT", 0, 0)
+	altsLeftPane:Hide()
+	altsLeftPane.OnEscape = function()
+		frame:Hide()
+	end
+	frame.altsLeftPane = altsLeftPane
+
+	local altsPane = ns.UI_CreateAltsPane(frame)
+	altsPane:SetPoint("TOPLEFT", characterPane, "TOPLEFT", 0, 0)
+	altsPane:SetPoint("BOTTOMRIGHT", characterPane, "BOTTOMRIGHT", 0, 0)
+	altsPane:Hide()
+	frame.altsPane = altsPane
+
+	function frame:ApplyLeftViewMode(mode)
+		mode = mode == ns.VIEW_MODE.ALTS and ns.VIEW_MODE.ALTS or ns.VIEW_MODE.FACTIONS
+		local altsActive = mode == ns.VIEW_MODE.ALTS
+		leftPane:SetShown(not altsActive)
+		altsLeftPane:SetShown(altsActive)
+		applyTabSelectionVisual(factionsTab, not altsActive)
+		applyTabSelectionVisual(altsTab, altsActive)
+	end
+
+	function frame:ApplyRightViewMode(mode)
+		mode = mode == ns.VIEW_MODE.ALTS and ns.VIEW_MODE.ALTS or ns.VIEW_MODE.FACTIONS
+		local altsActive = mode == ns.VIEW_MODE.ALTS
+		characterPane:SetShown(not altsActive)
+		altsPane:SetShown(altsActive)
+	end
+
 	local debugPane = debugEnabled and ns.UI_CreateDebugPane(frame) or nil
 	frame.debugPane = debugPane
 	local forgetAltDialog = ns.UI_CreateForgetAltDialog(frame)
@@ -250,16 +315,29 @@ function ns.CreateMainFrame()
 
 	function frame:SetDebugPageShown(shown)
 		if not debugEnabled or not debugPane or not debugBtn or not debugScanBtn or not debugClearBtn then
-			leftPane:Show()
-			characterPane:Show()
+			frame:ApplyLeftViewMode(ns.GetLeftViewMode())
+			frame:ApplyRightViewMode(ns.GetRightViewMode())
+			factionsTab:Show()
+			altsTab:Show()
 			if debugPane then
 				debugPane:Hide()
 			end
 			return
 		end
 		shown = shown == true
-		leftPane:SetShown(not shown)
-		characterPane:SetShown(not shown)
+		if shown then
+			leftPane:Hide()
+			altsLeftPane:Hide()
+			characterPane:Hide()
+			altsPane:Hide()
+			factionsTab:Hide()
+			altsTab:Hide()
+		else
+			factionsTab:Show()
+			altsTab:Show()
+			frame:ApplyLeftViewMode(ns.GetLeftViewMode())
+			frame:ApplyRightViewMode(ns.GetRightViewMode())
+		end
 		debugPane:SetShown(shown)
 		debugBtn:SetText(shown and ns.TEXT.BACK or ns.TEXT.DEBUG)
 		debugScanBtn:SetShown(shown)
@@ -324,6 +402,9 @@ function ns.CreateMainFrame()
 		state.ignoreSearchEvents = true
 		searchBox:SetText(ns.GetFilterValue("searchText") or "")
 		state.ignoreSearchEvents = false
+		if altsLeftPane.SyncSearchBox then
+			altsLeftPane:SyncSearchBox(ns.GetAltFilterValue("searchText") or "")
+		end
 		frame:UpdateForgetAltButtonState()
 		if debugBtn and debugPane and debugScanBtn and debugClearBtn then
 			debugBtn:SetText(debugPane:IsShown() and ns.TEXT.BACK or ns.TEXT.DEBUG)

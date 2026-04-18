@@ -20,6 +20,7 @@ local DEFAULT_FILES = {
 	"Core/FactionTreeView.lua",
 	"Core/ReputationEventHints.lua",
 	"Core/LiveUpdateController.lua",
+	"Core/ScanScheduler.lua",
 	"Core/Bootstrap.lua",
 }
 

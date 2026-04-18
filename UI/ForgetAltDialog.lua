@@ -69,12 +69,10 @@ function ns.UI_CreateForgetAltDialog(parent)
 	function dialog:SetSelectedCharacter(character)
 		self.selectedCharacter = character
 		self.selectedCharacterKey = ns.SafeString(character and character.characterKey)
-		if UIDropDownMenu_SetText then
-			UIDropDownMenu_SetText(
-				self.dropdown,
-				character and ns.FormatCharacterName(character) or ns.TEXT.FORGET_ALT_SELECT
-			)
-		end
+		ns.UIWidgets.SetDropdownText(
+			self.dropdown,
+			character and ns.FormatCharacterName(character) or ns.TEXT.FORGET_ALT_SELECT
+		)
 		self.forgetBtn:SetEnabled(self.selectedCharacterKey ~= "")
 	end
 

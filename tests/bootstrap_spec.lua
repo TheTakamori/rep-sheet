@@ -7,6 +7,10 @@ local BOOTSTRAP_UI_FILES = support.with_files({
 	"UI/OptionsPanel.lua",
 })
 
+local SLASH_COMMAND_FILES = support.with_files({
+	"UI/SlashCommands.lua",
+})
+
 return function(runner, root)
 	runner:test("ADDON_LOADED only initializes the addon for the matching addon name", function()
 		local ctx = support.new_context(root)
@@ -146,7 +150,7 @@ return function(runner, root)
 	end)
 
 	runner:test("Slash commands cover manual scan and debug view opening", function()
-		local ctx = support.new_context(root)
+		local ctx = support.new_context(root, { files = SLASH_COMMAND_FILES })
 		local ns = ctx.ns
 		local calls = {}
 		local frame = {
@@ -197,7 +201,7 @@ return function(runner, root)
 	end)
 
 	runner:test("Default slash command toggles the main frame and refreshes only when showing it", function()
-		local ctx = support.new_context(root)
+		local ctx = support.new_context(root, { files = SLASH_COMMAND_FILES })
 		local ns = ctx.ns
 		local refreshes = 0
 		local frame = {

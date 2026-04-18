@@ -30,7 +30,7 @@ local overridesByName = {
 	[ns.NormalizeSearchText("The Severed Threads")] = "tww",
 	[ns.NormalizeSearchText("The Cartels of Undermine")] = "tww",
 	[ns.NormalizeSearchText("Brann Bronzebeard")] = "tww",
-	[ns.NormalizeSearchText("Neighborhood Initiative")] = "midnight",
+	[ns.NormalizeSearchText(ns.NEIGHBORHOOD_INITIATIVE_NAME)] = ns.NEIGHBORHOOD_INITIATIVE_EXPANSION_KEY,
 }
 
 function ns.ResolveFactionExpansionOverride(factionID, factionName)

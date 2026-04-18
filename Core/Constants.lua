@@ -47,6 +47,51 @@ ns.FILTER_STATUS_OPTIONS = {
 	{ key = ns.FILTER_STATUS.MAXED, label = "Any Alt Maxed" },
 }
 
+ns.VIEW_MODE = {
+	FACTIONS = "factions",
+	ALTS = "alts",
+}
+
+ns.ALL_ALT_FILTER_KEY = "all"
+
+ns.ALT_FACTION_FILTER = {
+	ALL = ns.ALL_ALT_FILTER_KEY,
+	ALLIANCE = "Alliance",
+	HORDE = "Horde",
+	NEUTRAL = "Neutral",
+}
+
+ns.ALT_FACTION_OPTIONS = {
+	{ key = ns.ALT_FACTION_FILTER.ALL, label = "All Factions" },
+	{ key = ns.ALT_FACTION_FILTER.ALLIANCE, label = "Alliance" },
+	{ key = ns.ALT_FACTION_FILTER.HORDE, label = "Horde" },
+	{ key = ns.ALT_FACTION_FILTER.NEUTRAL, label = "Neutral" },
+}
+
+ns.ALT_SORT_KEY = {
+	NAME = "name",
+	LEVEL_DESC = "levelDesc",
+	CLASS = "class",
+	LAST_SCAN_DESC = "lastScanDesc",
+}
+
+ns.ALT_SORT_OPTIONS = {
+	{ key = ns.ALT_SORT_KEY.NAME, label = "Name" },
+	{ key = ns.ALT_SORT_KEY.LEVEL_DESC, label = "Level (Highest)" },
+	{ key = ns.ALT_SORT_KEY.CLASS, label = "Class" },
+	{ key = ns.ALT_SORT_KEY.LAST_SCAN_DESC, label = "Last Scanned" },
+}
+
+ns.ALT_REP_SORT_KEY = {
+	NAME = "name",
+	LEVEL_DESC = "levelDesc",
+}
+
+ns.ALT_REP_SORT_OPTIONS = {
+	{ key = ns.ALT_REP_SORT_KEY.NAME, label = "Name" },
+	{ key = ns.ALT_REP_SORT_KEY.LEVEL_DESC, label = "Level (Highest)" },
+}
+
 ns.SORT_KEY = {
 	BEST_PROGRESS = "bestProgress",
 	CLOSEST_TO_NEXT = "closestToNext",
@@ -74,6 +119,9 @@ ns.REP_TYPE = {
 	NEIGHBORHOOD = "neighborhood",
 	OTHER = "other",
 }
+
+ns.NEIGHBORHOOD_INITIATIVE_NAME = "Neighborhood Initiative"
+ns.NEIGHBORHOOD_INITIATIVE_EXPANSION_KEY = "midnight"
 
 ns.EVENT = {
 	ADDON_LOADED = "ADDON_LOADED",
@@ -156,6 +204,26 @@ ns.TEXT = {
 	NO_FACTION_SELECTED = "No Faction Selected",
 	CHOOSE_FACTION_HINT = "Choose a faction from the list on the left.",
 	DETAIL_EMPTY_HINT = "Select a faction on the left to see every known alt here.",
+	TAB_FACTIONS = "Factions",
+	TAB_ALTS = "Alts",
+	ALTS_SEARCH = "Alt Name",
+	ALTS_FACTION_FILTER = "Faction",
+	ALTS_CLASS_FILTER = "Class",
+	ALTS_RACE_FILTER = "Race",
+	ALTS_PROFESSION_FILTER = "Profession",
+	ALTS_SORT = "Sort",
+	ALTS_FILTER_ALL_CLASSES = "All Classes",
+	ALTS_FILTER_ALL_RACES = "All Races",
+	ALTS_FILTER_ALL_PROFESSIONS = "All Professions",
+	NO_ALT_SELECTED = "No Alt Selected",
+	CHOOSE_ALT_HINT = "Choose an alt from the list on the left.",
+	ALT_DETAIL_EMPTY_HINT = "Select an alt on the left to see every reputation for that character here.",
+	ALT_REPUTATIONS_HEADER = "Reputations",
+	ALT_NO_REPUTATIONS = "No reputations have been captured yet for this alt.",
+	ALT_REP_FILTER_LABEL = "Expansion",
+	ALT_REP_SORT_LABEL = "Sort",
+	ALT_REP_FILTER_EMPTY = "No reputations match the current expansion filter for this alt.",
+	NO_PROFESSIONS = "No professions",
 	DEBUG_TITLE = "Debug Log",
 	DEBUG_INFO = "The log below is a selectable edit box. Click it, then press Ctrl-C to copy. Use Clear Log and Scan & Log to capture a fresh trace. Clear All Data wipes every saved character snapshot so you can test from a clean state.",
 	DEBUG_EMPTY_HINT = "No debug lines yet. Use Scan & Log to capture a fresh trace.",
@@ -188,12 +256,29 @@ ns.FORMAT = {
 	SAVED_REPUTATIONS = "Saved %d reputations for %s.",
 	HOVER_NAME_REALM = "%s - %s",
 	HOVER_LEVEL_CLASS = "Level %d %s",
+	ALT_DETAIL_LEVEL_RACE_CLASS = "Level %d %s %s",
+	ALTS_COUNT_EMPTY = "No alts match the current filters.  Total alts: %d",
+	ALTS_COUNT_RESULTS = "Alts: %d / %d",
+	ALT_REPUTATION_COUNT = "%d reputations tracked",
+	ALT_REPUTATION_COUNT_FILTERED = "%d / %d reputations",
+	ALT_LAST_SCAN = "Last Scan: %s",
+	ALT_FACTION_GROUP = "Faction: %s",
+	LIVE_TRIGGER_REPUTATION_CHANGE = "reputation-change: %s",
+	DETAIL_STATUS_PROGRESS = "%s: %s",
+	DEBUG_TARGETED_REFRESH_LABEL = "targeted-refresh: %s",
+}
+
+ns.SEPARATOR = {
+	META_PARTS = "  ",
+	PROFESSION_LIST = ", ",
+	STATUS_PROGRESS_PUNCT = ":",
 }
 
 ns.LOG = {
 	ADDON_LOADED = "Rep Sheet loaded. Use %s to open the browser.",
 	MAIN_FRAME_CREATED = "Main frame created. Use %s to open it.",
 	SCAN_FAILED = "Scan Failed: %s",
+	TARGETED_REFRESH_SUMMARY = "Targeted refresh resolved=%d requested=%d standard=%d major=%d unresolved=%d names=%s",
 }
 
 ns.DEFAULT_MAIN_FRAME_POSITION = {

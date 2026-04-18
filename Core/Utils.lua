@@ -128,6 +128,24 @@ function ns.SafeTime()
 	return 0
 end
 
+ns.SIGNATURE_SEPARATOR = "\31"
+
+function ns.JoinSignature(parts)
+	local out = {}
+	for index = 1, #(parts or {}) do
+		local value = parts[index]
+		if value == nil then
+			value = ""
+		elseif type(value) == "boolean" then
+			value = value and "1" or "0"
+		else
+			value = tostring(value)
+		end
+		out[index] = value
+	end
+	return table.concat(out, ns.SIGNATURE_SEPARATOR)
+end
+
 function ns.CopyArray(values)
 	local out = {}
 	for index = 1, #(values or {}) do

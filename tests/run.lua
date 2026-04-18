@@ -38,8 +38,12 @@ local coverage = require("coverage").new(root, {
 	"Core/FactionFilters.lua",
 	"Core/FactionTree.lua",
 	"Core/FactionTreeView.lua",
+	"Core/AltsIndex.lua",
+	"Core/AltsFilters.lua",
+	"Core/AltRepFilters.lua",
 	"Core/ReputationEventHints.lua",
 	"Core/OpenFactionUI.lua",
+	"Core/ScanScheduler.lua",
 	"Core/Bootstrap.lua",
 })
 local runner = support.new_runner({
@@ -52,5 +56,8 @@ require("feature_spec")(runner, root)
 require("filters_normalizer_spec")(runner, root)
 require("bootstrap_spec")(runner, root)
 require("scanner_spec")(runner, root)
+require("alts_index_spec")(runner, root)
+require("alts_refresh_spec")(runner, root)
+require("alt_rep_filters_spec")(runner, root)
 
 os.exit(runner:run())

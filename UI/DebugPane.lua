@@ -74,11 +74,9 @@ local function showClearAllDataConfirm(pane)
 end
 
 function ns.UI_CreateDebugPane(parent)
-	local pane = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+	local pane = ns.UIWidgets.CreateBackdropPane(parent, ns.UI_BACKDROPS.PANE, colors.PANE_BG, colors.PANE_BORDER)
 	pane:SetPoint("TOPLEFT", parent, "TOPLEFT", ns.UI_FRAME_SIDE_INSET, ns.UI_FRAME_TOP_OFFSET)
 	pane:SetSize(paneWidth(), ns.UI_FRAME_HEIGHT - ns.UI_PANE_HEIGHT_TRIM)
-	pane:SetBackdrop(ns.UI_BACKDROPS.PANE)
-	ui.ApplyBackdropColors(pane, colors.PANE_BG, colors.PANE_BORDER)
 
 	pane.title = pane:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
 	pane.title:SetPoint("TOPLEFT", pane, "TOPLEFT", layout.TITLE_LEFT, layout.TITLE_TOP)
