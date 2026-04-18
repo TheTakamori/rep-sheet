@@ -10,6 +10,31 @@ local function scrollChildWidth()
 	return ns.UI_PANE_WIDTH - paneLayout.SCROLL_LEFT + paneLayout.SCROLL_RIGHT
 end
 
+local function hideCharacterTooltip(frame)
+	if not GameTooltip or GameTooltip:GetOwner() ~= frame then
+		return
+	end
+	GameTooltip:Hide()
+end
+
+local function showCharacterTooltip(frame)
+	if not frame or not GameTooltip then
+		return
+	end
+	local lines = ns.BuildCharacterHoverTooltipLines(frame.currentEntry)
+	if type(lines) ~= "table" or #lines == 0 then
+		return
+	end
+
+	GameTooltip:SetOwner(frame, "ANCHOR_RIGHT")
+	GameTooltip:ClearLines()
+	for index = 1, #lines do
+		local line = lines[index]
+		GameTooltip:AddLine(line.text, line.r, line.g, line.b, line.wrap == true)
+	end
+	GameTooltip:Show()
+end
+
 local function createDetailRow(parent, index)
 	local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 	row:SetSize(parent:GetWidth() - ns.UI_DETAIL_ROW_WIDTH_TRIM, ns.UI_DETAIL_ROW_HEIGHT)
@@ -26,6 +51,16 @@ local function createDetailRow(parent, index)
 	row.name = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	row.name:SetPoint("TOPLEFT", row, "TOPLEFT", rowLayout.NAME_LEFT, rowLayout.NAME_TOP)
 	row.name:SetJustifyH("LEFT")
+
+	row.nameHover = CreateFrame("Button", nil, row)
+	row.nameHover:SetAllPoints(row.name)
+	row.nameHover:RegisterForClicks()
+	if row.nameHover.SetPropagateMouseClicks then
+		row.nameHover:SetPropagateMouseClicks(true)
+	end
+	row.nameHover:SetScript("OnEnter", showCharacterTooltip)
+	row.nameHover:SetScript("OnLeave", hideCharacterTooltip)
+	row.nameHover:SetScript("OnHide", hideCharacterTooltip)
 
 	row.status = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	row.status:SetPoint("TOPRIGHT", row, "TOPRIGHT", rowLayout.STATUS_RIGHT, rowLayout.STATUS_TOP)
@@ -51,6 +86,10 @@ end
 
 local function applyDetailRow(row, entry)
 	if not entry then
+		if row.nameHover then
+			row.nameHover.currentEntry = nil
+			hideCharacterTooltip(row.nameHover)
+		end
 		row:Hide()
 		return
 	end
@@ -67,6 +106,15 @@ local function applyDetailRow(row, entry)
 		local r, g, b = ns.GetClassColor({ classFile = entry.classFile })
 		row.name:SetText(ns.FormatCharacterName(entry))
 		row.name:SetTextColor(r, g, b)
+	end
+
+	if row.nameHover then
+		row.nameHover.currentEntry = entry
+		if entry.isAccountWide then
+			row.nameHover:Hide()
+		else
+			row.nameHover:Show()
+		end
 	end
 
 	if progressText ~= "" then

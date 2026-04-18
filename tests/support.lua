@@ -551,6 +551,7 @@ local function create_test_env()
 		level = 80,
 		guid = "Player-1-0000000000",
 		zone = "Stormwind",
+		professions = nil,
 	}
 
 	env.LE_EXPANSION_CLASSIC = 0
@@ -648,6 +649,26 @@ local function create_test_env()
 
 	env.GetRealZoneText = function()
 		return env.__player.zone
+	end
+
+	env.GetProfessions = function()
+		local data = env.__player.professions
+		if type(data) ~= "table" then
+			return nil, nil
+		end
+		return data.prof1Index, data.prof2Index
+	end
+
+	env.GetProfessionInfo = function(index)
+		local data = env.__player.professions
+		if type(data) ~= "table" or type(data.byIndex) ~= "table" then
+			return nil
+		end
+		local info = data.byIndex[index]
+		if type(info) ~= "table" then
+			return nil
+		end
+		return info.name, info.icon, info.skillLevel, info.maxSkillLevel
 	end
 
 	env.C_AddOns = {

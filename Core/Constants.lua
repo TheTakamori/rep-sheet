@@ -169,6 +169,7 @@ ns.TEXT = {
 	PROGRESS_BAR_TOOLTIP_PARAGON = "Purple: Paragon progress after the reputation is maxed.",
 	MINIMAP_TOOLTIP_OPEN = "Left-click to open Rep Sheet.",
 	MINIMAP_TOOLTIP_DRAG = "Drag to move this icon around the minimap.",
+	HOVER_NEEDS_CAPTURE = "Log into this character to update professions, level and class!",
 }
 
 ns.FORMAT = {
@@ -185,6 +186,8 @@ ns.FORMAT = {
 	DETAIL_SUMMARY_WARBAND = "Warband Reputation. Last Snapshot: %s.",
 	STANDARD_SCAN_CAPTURED = "Standard scan captured %d faction rows.",
 	SAVED_REPUTATIONS = "Saved %d reputations for %s.",
+	HOVER_NAME_REALM = "%s - %s",
+	HOVER_LEVEL_CLASS = "Level %d %s",
 }
 
 ns.LOG = {

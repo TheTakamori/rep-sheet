@@ -83,6 +83,193 @@ return function(runner, root)
 		A.equal(options.periodicMinutes, ns.LIVE_UPDATE_PERIODIC_MINUTES_DEFAULT)
 	end)
 
+	runner:test("DB_SCHEMA_VERSION must remain at 2 to avoid wiping stored character data", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		A.equal(ns.DB_SCHEMA_VERSION, 2)
+	end)
+
+	runner:test("BuildCurrentPlayerProfessions returns both primary slots when populated", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ctx.env.__player.professions = {
+			prof1Index = 1,
+			prof2Index = 2,
+			byIndex = {
+				[1] = { name = "Mining", skillLevel = 90, maxSkillLevel = 100 },
+				[2] = { name = "Blacksmithing", skillLevel = 75, maxSkillLevel = 100 },
+			},
+		}
+
+		local professions = ns.BuildCurrentPlayerProfessions()
+		A.equal(professions.primary1.name, "Mining")
+		A.equal(professions.primary1.skillLevel, 90)
+		A.equal(professions.primary1.maxSkillLevel, 100)
+		A.equal(professions.primary2.name, "Blacksmithing")
+		A.equal(professions.primary2.skillLevel, 75)
+	end)
+
+	runner:test("BuildCurrentPlayerProfessions skips empty slots and survives a missing API", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ctx.env.__player.professions = {
+			prof1Index = 3,
+			prof2Index = nil,
+			byIndex = {
+				[3] = { name = "Tailoring", skillLevel = 1, maxSkillLevel = 100 },
+			},
+		}
+
+		local professions = ns.BuildCurrentPlayerProfessions()
+		A.equal(professions.primary1.name, "Tailoring")
+		A.equal(professions.primary2, nil)
+
+		ctx.env.__player.professions = nil
+		professions = ns.BuildCurrentPlayerProfessions()
+		A.equal(professions.primary1, nil)
+		A.equal(professions.primary2, nil)
+
+		local previousGetProfessions = ctx.env.GetProfessions
+		ctx.env.GetProfessions = nil
+		A.equal(ns.BuildCurrentPlayerProfessions(), nil)
+
+		ctx.env.GetProfessions = function()
+			error("api blew up")
+		end
+		A.equal(ns.BuildCurrentPlayerProfessions(), nil)
+		ctx.env.GetProfessions = previousGetProfessions
+	end)
+
+	runner:test("BuildCurrentCharacterMeta and SaveCharacterSnapshot persist captured professions", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+		ctx.env.__player.professions = {
+			prof1Index = 1,
+			prof2Index = 2,
+			byIndex = {
+				[1] = { name = "Engineering", skillLevel = 50, maxSkillLevel = 100 },
+				[2] = { name = "Mining", skillLevel = 60, maxSkillLevel = 100 },
+			},
+		}
+
+		local meta = ns.BuildCurrentCharacterMeta()
+		A.equal(meta.professions.primary1.name, "Engineering")
+		A.equal(meta.professions.primary2.name, "Mining")
+
+		local snapshot = ns.BuildCurrentCharacterSnapshotBase("test")
+		ns.SaveCharacterSnapshot(snapshot)
+		local stored = ns.GetCharacterByKey(snapshot.characterKey)
+		A.equal(stored.professions.primary1.name, "Engineering")
+		A.equal(stored.professions.primary2.name, "Mining")
+	end)
+
+	runner:test("SaveCharacterSnapshot leaves legacy snapshots without professions untouched", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ctx.env.RepSheetDB = {
+			version = ns.DB_SCHEMA_VERSION,
+			characters = {
+				["LegacyRealm::Legacy"] = {
+					characterKey = "LegacyRealm::Legacy",
+					name = "Legacy",
+					realm = "LegacyRealm",
+					level = 60,
+					className = "Warrior",
+					classFile = "WARRIOR",
+					reputations = {
+						["100"] = {
+							factionKey = "100",
+							factionID = 100,
+							name = "Booty Bay",
+							expansionKey = "classic",
+							standingId = 6,
+							currentValue = 3000,
+							maxValue = 6000,
+						},
+					},
+				},
+			},
+		}
+		ns.InitDB()
+
+		ctx.env.__player.professions = {
+			prof1Index = 1,
+			byIndex = {
+				[1] = { name = "Mining", skillLevel = 80, maxSkillLevel = 100 },
+			},
+		}
+		ns.SaveCharacterSnapshot(ns.BuildCurrentCharacterSnapshotBase("test"))
+
+		local legacy = ns.GetCharacterByKey("LegacyRealm::Legacy")
+		A.truthy(legacy)
+		A.equal(legacy.name, "Legacy")
+		A.equal(legacy.level, 60)
+		A.equal(legacy.professions, nil)
+		A.truthy(legacy.reputations["100"])
+		A.equal(legacy.reputations["100"].name, "Booty Bay")
+	end)
+
+	runner:test("BuildCharacterHoverTooltipLines covers full data, partial, missing, and warband cases", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+
+		local fullLines = ns.BuildCharacterHoverTooltipLines({
+			characterName = "Takamori",
+			realm = "Area 52",
+			level = 90,
+			className = "Paladin",
+			classFile = "PALADIN",
+			professions = {
+				primary1 = { name = "Mining" },
+				primary2 = { name = "Blacksmithing" },
+			},
+		})
+		A.equal(#fullLines, 4)
+		A.equal(fullLines[1].text, "Takamori - Area 52")
+		A.equal(fullLines[2].text, "Level 90 Paladin")
+		A.equal(fullLines[3].text, "Mining")
+		A.equal(fullLines[4].text, "Blacksmithing")
+
+		local oneProfession = ns.BuildCharacterHoverTooltipLines({
+			characterName = "Solo",
+			realm = "Area 52",
+			level = 80,
+			className = "Mage",
+			classFile = "MAGE",
+			professions = {
+				primary1 = { name = "Tailoring" },
+			},
+		})
+		A.equal(#oneProfession, 3)
+		A.equal(oneProfession[3].text, "Tailoring")
+
+		local emptyProfessions = ns.BuildCharacterHoverTooltipLines({
+			characterName = "NoTrade",
+			realm = "Area 52",
+			level = 50,
+			className = "Rogue",
+			classFile = "ROGUE",
+			professions = {},
+		})
+		A.equal(#emptyProfessions, 2)
+		A.equal(emptyProfessions[2].text, "Level 50 Rogue")
+
+		local needsCapture = ns.BuildCharacterHoverTooltipLines({
+			characterName = "Legacy",
+			realm = "Old",
+			level = 60,
+			className = "Warrior",
+			classFile = "WARRIOR",
+		})
+		A.equal(#needsCapture, 2)
+		A.equal(needsCapture[1].text, "Legacy - Old")
+		A.equal(needsCapture[2].text, ns.TEXT.HOVER_NEEDS_CAPTURE)
+
+		A.equal(ns.BuildCharacterHoverTooltipLines({ isAccountWide = true }), nil)
+		A.equal(ns.BuildCharacterHoverTooltipLines(nil), nil)
+	end)
+
 	runner:test("SetFilterValue sanitizes status keys and invalidates cached views", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns

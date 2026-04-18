@@ -10,6 +10,8 @@ local function buildDetailEntry(character, rep)
 		realm = character.realm,
 		classFile = character.classFile,
 		className = character.className,
+		level = ns.SafeNumber(character.level, 0),
+		professions = character.professions,
 		lastScanAt = character.lastScanAt,
 		factionKey = rep.factionKey,
 		factionID = rep.factionID,

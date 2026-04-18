@@ -163,6 +163,49 @@ return function(runner, root)
 		A.equal(bucket.bestCharacterName, "Beta")
 	end)
 
+	runner:test("BuildFactionIndex propagates level and professions onto detail entries", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "Area52::Takamori",
+			name = "Takamori",
+			realm = "Area 52",
+			level = 90,
+			className = "Paladin",
+			classFile = "PALADIN",
+			professions = {
+				primary1 = { name = "Mining" },
+				primary2 = { name = "Blacksmithing" },
+			},
+			reputations = {
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					standingId = 5,
+					currentValue = 1500,
+					maxValue = 3000,
+				}),
+			},
+		}))
+
+		local entries = ns.GetFactionDetailEntries("100")
+		A.equal(#entries, 1)
+		A.equal(entries[1].level, 90)
+		A.equal(entries[1].className, "Paladin")
+		A.equal(entries[1].professions.primary1.name, "Mining")
+		A.equal(entries[1].professions.primary2.name, "Blacksmithing")
+
+		local lines = ns.BuildCharacterHoverTooltipLines(entries[1])
+		A.equal(#lines, 4)
+		A.equal(lines[1].text, "Takamori - Area 52")
+		A.equal(lines[2].text, "Level 90 Paladin")
+		A.equal(lines[3].text, "Mining")
+		A.equal(lines[4].text, "Blacksmithing")
+	end)
+
 	runner:test("GetVisibleFactionRows reveals matching children beneath collapsed parents", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns

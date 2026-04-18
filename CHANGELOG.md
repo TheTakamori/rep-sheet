@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.0
+
+- Added a hover tooltip on the right-pane character rows showing the
+  character's name and realm, level and class, and primary professions.
+- Captured each character's primary professions on login so the tooltip can
+  display them later without that alt being online.
+- Existing saved data is preserved; alts that have not logged in since this
+  update will show a one-line prompt asking you to log into them to refresh
+  professions, level, and class.
+
 ## 2.1.1
 
 - Reduced cases where optional live reputation updates could trigger extra

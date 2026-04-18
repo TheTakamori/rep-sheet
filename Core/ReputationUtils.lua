@@ -208,3 +208,75 @@ function ns.GetClassColor(character)
 	end
 	return ns.FALLBACK_CLASS_COLOR[1], ns.FALLBACK_CLASS_COLOR[2], ns.FALLBACK_CLASS_COLOR[3]
 end
+
+local PROFESSION_LINE_COLOR = { 1, 0.82, 0 }
+local NAME_REALM_LINE_COLOR = { 1, 1, 1 }
+local NEEDS_CAPTURE_LINE_COLOR = { 1, 0.55, 0.18 }
+
+local function appendNameRealmLine(lines, entry)
+	local name = ns.SafeString(entry.characterName, ns.SafeString(entry.name, ns.TEXT.UNKNOWN))
+	local realm = ns.SafeString(entry.realm)
+	local text
+	if realm == "" then
+		text = name
+	else
+		text = string.format(ns.FORMAT.HOVER_NAME_REALM, name, realm)
+	end
+	lines[#lines + 1] = {
+		text = text,
+		r = NAME_REALM_LINE_COLOR[1],
+		g = NAME_REALM_LINE_COLOR[2],
+		b = NAME_REALM_LINE_COLOR[3],
+	}
+end
+
+local function appendProfessionLine(lines, profession)
+	if type(profession) ~= "table" then
+		return
+	end
+	local name = ns.SafeString(profession.name)
+	if name == "" then
+		return
+	end
+	lines[#lines + 1] = {
+		text = name,
+		r = PROFESSION_LINE_COLOR[1],
+		g = PROFESSION_LINE_COLOR[2],
+		b = PROFESSION_LINE_COLOR[3],
+	}
+end
+
+function ns.BuildCharacterHoverTooltipLines(entry)
+	if type(entry) ~= "table" or entry.isAccountWide == true then
+		return nil
+	end
+
+	local lines = {}
+	appendNameRealmLine(lines, entry)
+
+	if entry.professions == nil then
+		lines[#lines + 1] = {
+			text = ns.TEXT.HOVER_NEEDS_CAPTURE,
+			r = NEEDS_CAPTURE_LINE_COLOR[1],
+			g = NEEDS_CAPTURE_LINE_COLOR[2],
+			b = NEEDS_CAPTURE_LINE_COLOR[3],
+			wrap = true,
+		}
+		return lines
+	end
+
+	local level = ns.SafeNumber(entry.level, 0)
+	local className = ns.SafeString(entry.className)
+	local classR, classG, classB = ns.GetClassColor(entry)
+	lines[#lines + 1] = {
+		text = string.format(ns.FORMAT.HOVER_LEVEL_CLASS, level, className),
+		r = classR,
+		g = classG,
+		b = classB,
+	}
+
+	appendProfessionLine(lines, entry.professions.primary1)
+	appendProfessionLine(lines, entry.professions.primary2)
+
+	return lines
+end

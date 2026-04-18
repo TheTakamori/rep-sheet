@@ -19,6 +19,43 @@ function ns.MakeCharacterKey(name, realm)
 	return string.format("%s::%s", ns.NormalizeText(realm), ns.NormalizeText(name))
 end
 
+local function buildProfessionEntry(index)
+	if type(index) ~= "number" or type(GetProfessionInfo) ~= "function" then
+		return nil
+	end
+	local name, _, skillLevel, maxSkillLevel = GetProfessionInfo(index)
+	name = ns.NormalizeText(name)
+	if name == "" then
+		return nil
+	end
+	return {
+		name = name,
+		skillLevel = ns.SafeNumber(skillLevel, 0),
+		maxSkillLevel = ns.SafeNumber(maxSkillLevel, 0),
+	}
+end
+
+local function readPlayerProfessions()
+	if type(GetProfessions) ~= "function" then
+		return nil
+	end
+	local prof1, prof2 = GetProfessions()
+	local primary1 = buildProfessionEntry(prof1)
+	local primary2 = buildProfessionEntry(prof2)
+	if not primary1 and not primary2 then
+		return { primary1 = nil, primary2 = nil }
+	end
+	return { primary1 = primary1, primary2 = primary2 }
+end
+
+function ns.BuildCurrentPlayerProfessions()
+	local ok, professions = pcall(readPlayerProfessions)
+	if not ok then
+		return nil
+	end
+	return professions
+end
+
 function ns.GetCurrentCharacterKey()
 	local name, realm = playerNameAndRealm()
 	return ns.MakeCharacterKey(name, realm)
@@ -52,6 +89,7 @@ function ns.BuildCurrentCharacterMeta()
 		level = UnitLevel and UnitLevel("player") or 0,
 		guid = UnitGUID and UnitGUID("player") or nil,
 		lastKnownZone = GetRealZoneText and GetRealZoneText() or "",
+		professions = ns.BuildCurrentPlayerProfessions(),
 	}
 end
 

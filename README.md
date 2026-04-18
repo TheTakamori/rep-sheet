@@ -13,6 +13,8 @@ which character has the reputation you need right now?
 - Adds a movable minimap icon for quick access.
 - Includes Blizzard Settings options for optional live reputation updates.
 - Shows version information directly in the main window.
+- Hovering a character row reveals a tooltip with name and realm, level and
+  class, and primary professions captured the last time that alt logged in.
 
 ## Slash Commands
 
@@ -48,7 +50,7 @@ This project is released as `All Rights Reserved`.
 ## Project Metadata
 
 The source metadata and release notes in this tree are current through
-`2.1.1`.
+`2.2.0`.
 
 The following public listing assets still need final values when the
 CurseForge project page is refreshed:
