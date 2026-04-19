@@ -115,6 +115,325 @@ return function(runner, root)
 		A.contains(stored.scanNotes.partialMerge, "Preserved 1 missing reputations")
 	end)
 
+	runner:test("SaveCharacterSnapshot drops a stale guild reputation when a full scan has the new guild", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Takadin",
+			name = "Takadin",
+			lastScanAt = 100,
+			lastScanReason = "Initial",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["1100"] = support.make_reputation(ns, {
+					factionID = 1100,
+					name = "Stray Cats",
+					expansionKey = ns.ALL_EXPANSIONS_KEY,
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Takadin",
+			name = "Takadin",
+			lastScanAt = 200,
+			lastScanReason = "Manual refresh",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["1200"] = support.make_reputation(ns, {
+					factionID = 1200,
+					name = "Twilight Sparkle",
+					expansionKey = ns.ALL_EXPANSIONS_KEY,
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		local stored = ns.GetCharacterByKey("TestRealm::Takadin")
+		A.truthy(stored.reputations["1200"], "Current guild reputation should be saved")
+		A.falsy(stored.reputations["1100"], "Stale guild reputation should be removed")
+		A.truthy(stored.reputations["100"], "Non-guild reputations should be preserved")
+	end)
+
+	runner:test("SaveCharacterSnapshot drops every stored guild rep when a full scan finds no current guild", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Drifter",
+			name = "Drifter",
+			lastScanAt = 100,
+			lastScanReason = "Initial",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["1100"] = support.make_reputation(ns, {
+					factionID = 1100,
+					name = "Stray Cats",
+					expansionKey = ns.ALL_EXPANSIONS_KEY,
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+				["200"] = support.make_reputation(ns, {
+					factionID = 200,
+					name = "Everlook",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Drifter",
+			name = "Drifter",
+			lastScanAt = 200,
+			lastScanReason = "Manual refresh",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		local stored = ns.GetCharacterByKey("TestRealm::Drifter")
+		A.falsy(stored.reputations["1100"], "A character with no current guild should not retain stale guild reps")
+		A.truthy(stored.reputations["100"], "Non-guild reputations should still be preserved when missing from the new scan")
+		A.truthy(stored.reputations["200"], "Non-guild reputations should still be preserved when missing from the new scan")
+		A.contains(stored.scanNotes.droppedGuildReputations, "Dropped 1 stale guild reputation")
+	end)
+
+	runner:test("SaveCharacterSnapshot drops legacy '1168' guild entries even without the isGuildReputation flag", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::LegacyAlt",
+			name = "LegacyAlt",
+			lastScanAt = 100,
+			lastScanReason = "Initial",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["1168"] = support.make_reputation(ns, {
+					factionID = ns.GUILD_FACTION_ID,
+					name = "Stray Cats",
+					expansionKey = "classic",
+					headerPath = { "Classic", "Guild" },
+				}),
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::LegacyAlt",
+			name = "LegacyAlt",
+			lastScanAt = 200,
+			lastScanReason = "Manual refresh",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["guild:twilight sparkle"] = support.make_reputation(ns, {
+					factionKey = "guild:twilight sparkle",
+					factionID = ns.GUILD_FACTION_ID,
+					name = "Twilight Sparkle",
+					expansionKey = "classic",
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		local stored = ns.GetCharacterByKey("TestRealm::LegacyAlt")
+		A.falsy(stored.reputations["1168"], "Legacy guild entry under shared 1168 key must be removed")
+		A.truthy(stored.reputations["guild:twilight sparkle"], "New guild rep should be saved under its guild-name key")
+	end)
+
+	runner:test("BackfillStoredCharacterReputations migrates legacy 1168 entries to per-guild keys", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		local raw = {
+			characterKey = "TestRealm::Migrant",
+			name = "Migrant",
+			realm = "TestRealm",
+			reputations = {
+				["1168"] = {
+					factionKey = "1168",
+					factionID = ns.GUILD_FACTION_ID,
+					name = "Stray Cats",
+					expansionKey = "classic",
+					expansionName = "Classic / Vanilla",
+					repType = ns.REP_TYPE.STANDARD,
+					repTypeLabel = "Reputation",
+					standingId = 5,
+					standingText = "Friendly",
+					rankText = "Friendly",
+					progressText = "3000/6000",
+					currentValue = 3000,
+					maxValue = 6000,
+					overallFraction = 0.5,
+					remainingFraction = 0.5,
+					sortName = "stray cats",
+					searchText = "stray cats",
+					icon = "Interface\\Icons\\Achievement_Reputation_01",
+					headerPath = { "Classic", "Guild" },
+					headerLabel = "Classic / Guild",
+					isAccountWide = true,
+				},
+			},
+		}
+
+		ns.BackfillStoredCharacterReputations(raw)
+
+		A.falsy(raw.reputations["1168"], "Legacy 1168 entry should be removed after migration")
+		A.truthy(raw.reputations["guild:stray cats"], "Legacy guild entry should be re-keyed under its guild-name key")
+		local migrated = raw.reputations["guild:stray cats"]
+		A.equal(migrated.factionKey, "guild:stray cats")
+		A.truthy(migrated.isGuildReputation, "Migrated guild entry should carry the guild flag")
+		A.falsy(migrated.isAccountWide, "Migrated guild entry should never be account-wide")
+	end)
+
+	runner:test("Two characters in different guilds remain distinct buckets in the faction index", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Takadin",
+			name = "Takadin",
+			realm = "TestRealm",
+			lastScanAt = 100,
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["guild:twilight sparkle"] = support.make_reputation(ns, {
+					factionKey = "guild:twilight sparkle",
+					factionID = ns.GUILD_FACTION_ID,
+					name = "Twilight Sparkle",
+					expansionKey = "classic",
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+			},
+		}))
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Other",
+			name = "Other",
+			realm = "TestRealm",
+			lastScanAt = 200,
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["guild:stray cats"] = support.make_reputation(ns, {
+					factionKey = "guild:stray cats",
+					factionID = ns.GUILD_FACTION_ID,
+					name = "Stray Cats",
+					expansionKey = "classic",
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+			},
+		}))
+
+		ns.MarkIndexDirty()
+		local index = ns.BuildFactionIndex()
+		local twilightBucket = index.byKey["guild:twilight sparkle"]
+		local strayBucket = index.byKey["guild:stray cats"]
+		A.truthy(twilightBucket, "Twilight Sparkle should have its own bucket")
+		A.truthy(strayBucket, "Stray Cats should have its own bucket")
+		A.equal(#twilightBucket.entries, 1, "Twilight Sparkle bucket must only show its members")
+		A.equal(twilightBucket.entries[1].characterName, "Takadin")
+		A.equal(#strayBucket.entries, 1, "Stray Cats bucket must only show its members")
+		A.equal(strayBucket.entries[1].characterName, "Other")
+		A.falsy(twilightBucket.isAccountWide, "Guild buckets must not be account-wide")
+	end)
+
+	runner:test("SaveCharacterSnapshot keeps the stored guild rep when a targeted scan does not include any guild row", function()
+		local ctx = support.new_context(root)
+		local ns = ctx.ns
+		ns.InitDB()
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Bardin",
+			name = "Bardin",
+			lastScanAt = 100,
+			lastScanReason = "Initial",
+			scanKind = ns.SCAN_KIND.FULL,
+			reputations = {
+				["1200"] = support.make_reputation(ns, {
+					factionID = 1200,
+					name = "Twilight Sparkle",
+					expansionKey = ns.ALL_EXPANSIONS_KEY,
+					headerPath = { "Guild" },
+					isGuildReputation = true,
+				}),
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "TestRealm::Bardin",
+			name = "Bardin",
+			lastScanAt = 200,
+			lastScanReason = "Targeted refresh",
+			scanKind = ns.SCAN_KIND.TARGETED,
+			reputations = {
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					currentValue = 4500,
+					headerPath = { "Classic / Vanilla", "Steamwheedle Cartel" },
+				}),
+			},
+		}))
+
+		local stored = ns.GetCharacterByKey("TestRealm::Bardin")
+		A.truthy(stored.reputations["1200"], "Targeted scans without a guild row should not wipe the current guild")
+		A.truthy(stored.reputations["100"])
+	end)
+
 	runner:test("BuildFactionIndex keeps the newest account-wide representative entry", function()
 		local ctx = support.new_context(root)
 		local ns = ctx.ns

@@ -93,10 +93,11 @@ function ns.BuildCurrentCharacterMeta()
 	}
 end
 
-function ns.BuildCurrentCharacterSnapshotBase(reason)
+function ns.BuildCurrentCharacterSnapshotBase(reason, scanKind)
 	local snapshot = ns.BuildCurrentCharacterMeta()
 	snapshot.lastScanAt = ns.SafeTime()
 	snapshot.lastScanReason = ns.SafeString(reason)
+	snapshot.scanKind = ns.SafeString(scanKind, ns.SCAN_KIND.FULL)
 	snapshot.reputations = {}
 	snapshot.scanNotes = {}
 	return snapshot
@@ -109,11 +110,30 @@ local function countSnapshotReputations(snapshot)
 	return ns.CountTable(snapshot.reputations)
 end
 
-local function shouldPreserveMissingReputation(reputation)
+local function snapshotHasGuildReputation(reputations)
+	if type(reputations) ~= "table" then
+		return false
+	end
+	for factionKey, reputation in pairs(reputations) do
+		if ns.IsGuildReputation(reputation, factionKey) then
+			return true
+		end
+	end
+	return false
+end
+
+local function shouldPreserveMissingReputation(reputation, factionKey, context)
 	if type(reputation) ~= "table" then
 		return false
 	end
 	if ns.SafeString(reputation.repType) == ns.REP_TYPE.MAJOR then
+		return false
+	end
+	if ns.IsGuildReputation(reputation, factionKey) and context and context.dropStaleGuildReps then
+		-- Each character can only belong to one guild at a time. When the
+		-- current scan is authoritative (full scan) or itself observed a guild
+		-- reputation row, never bring forward old guild factions for this
+		-- character; otherwise stale guilds linger after the player switches.
 		return false
 	end
 	return ns.SafeNumber(reputation.majorFactionID, 0) <= 0
@@ -159,6 +179,7 @@ local function buildStoredReputation(reputation)
 		atWar = reputation.atWar == true,
 		canToggleAtWar = reputation.canToggleAtWar == true,
 		isChild = reputation.isChild == true,
+		isGuildReputation = reputation.isGuildReputation == true,
 		headerPath = type(reputation.headerPath) == "table" and ns.CopyArray(reputation.headerPath) or {},
 		headerLabel = ns.SafeString(reputation.headerLabel),
 		sortName = ns.SafeString(reputation.sortName, ns.NormalizeSearchText(reputation.name)),
@@ -210,6 +231,11 @@ local function preserveMissingReputations(snapshot, previous, previousBestCount)
 	local previousReputations = type(previous.reputations) == "table" and previous.reputations or nil
 	local currentCount = ns.CountTable(currentReputations)
 	local previousStoredCount = countSnapshotReputations(previous)
+	local scanKind = ns.SafeString(snapshot.scanKind, ns.SCAN_KIND.FULL)
+	local currentHasGuildRep = snapshotHasGuildReputation(currentReputations)
+	local context = {
+		dropStaleGuildReps = scanKind == ns.SCAN_KIND.FULL or currentHasGuildRep,
+	}
 
 	if type(previousReputations) ~= "table" or currentCount >= previousBestCount or previousStoredCount <= 0 then
 		snapshot.reputationCount = currentCount
@@ -222,14 +248,19 @@ local function preserveMissingReputations(snapshot, previous, previousBestCount)
 	end
 
 	local preservedCount = 0
+	local droppedGuildCount = 0
 	for factionKey, reputation in pairs(previousReputations) do
-		if not mergedReputations[factionKey] and shouldPreserveMissingReputation(reputation) then
-			mergedReputations[factionKey] = reputation
-			preservedCount = preservedCount + 1
+		if not mergedReputations[factionKey] then
+			if shouldPreserveMissingReputation(reputation, factionKey, context) then
+				mergedReputations[factionKey] = reputation
+				preservedCount = preservedCount + 1
+			elseif ns.IsGuildReputation(reputation, factionKey) and context.dropStaleGuildReps then
+				droppedGuildCount = droppedGuildCount + 1
+			end
 		end
 	end
 
-	if preservedCount <= 0 then
+	if preservedCount <= 0 and droppedGuildCount <= 0 then
 		snapshot.reputationCount = currentCount
 		return
 	end
@@ -237,18 +268,28 @@ local function preserveMissingReputations(snapshot, previous, previousBestCount)
 	snapshot.reputations = mergedReputations
 	snapshot.reputationCount = ns.CountTable(mergedReputations)
 	snapshot.scanNotes = type(snapshot.scanNotes) == "table" and snapshot.scanNotes or {}
-	snapshot.scanNotes.partialMerge = string.format(
-		"Preserved %d missing reputations from prior snapshot.",
-		preservedCount
-	)
+	if preservedCount > 0 then
+		snapshot.scanNotes.partialMerge = string.format(
+			"Preserved %d missing reputations from prior snapshot.",
+			preservedCount
+		)
+	end
+	if droppedGuildCount > 0 then
+		snapshot.scanNotes.droppedGuildReputations = string.format(
+			"Dropped %d stale guild reputation%s from prior snapshot.",
+			droppedGuildCount,
+			droppedGuildCount == 1 and "" or "s"
+		)
+	end
 
 	ns.DebugLog(string.format(
-		"Preserved missing reputations: reason=%s current=%s previousStored=%s previousBest=%s kept=%s merged=%s",
+		"Preserved missing reputations: reason=%s current=%s previousStored=%s previousBest=%s kept=%s droppedGuild=%s merged=%s",
 		ns.DebugValueText(snapshot.lastScanReason),
 		ns.DebugValueText(currentCount),
 		ns.DebugValueText(previousStoredCount),
 		ns.DebugValueText(previousBestCount),
 		ns.DebugValueText(preservedCount),
+		ns.DebugValueText(droppedGuildCount),
 		ns.DebugValueText(snapshot.reputationCount)
 	))
 end

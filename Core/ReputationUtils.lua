@@ -1,6 +1,72 @@
 RepSheet = RepSheet or {}
 local ns = RepSheet
 
+-- Build the per-guild storage key used to bucket guild reputations. Every guild
+-- shares ns.GUILD_FACTION_ID (1168) in the API, so we key stored guild rows by
+-- "<prefix><normalized guild name>" instead of the colliding faction ID.
+function ns.MakeGuildFactionKey(name)
+	local normalized = ns.NormalizeSearchText(name)
+	if normalized == "" then
+		return ""
+	end
+	return ns.GUILD_FACTION_KEY_PREFIX .. normalized
+end
+
+function ns.IsGuildFactionKey(factionKey)
+	if type(factionKey) ~= "string" or factionKey == "" then
+		return false
+	end
+	if factionKey == tostring(ns.GUILD_FACTION_ID) then
+		return true
+	end
+	local prefix = ns.GUILD_FACTION_KEY_PREFIX
+	return string.sub(factionKey, 1, #prefix) == prefix
+end
+
+function ns.HeaderPathContainsGuildHeader(headerPath)
+	if type(headerPath) ~= "table" then
+		return false
+	end
+	for index = 1, #headerPath do
+		if ns.NormalizeText(headerPath[index]) == ns.GUILD_HEADER_NAME then
+			return true
+		end
+	end
+	return false
+end
+
+-- Guild detection for raw scan rows where the header path is still passed
+-- alongside the row instead of stored on it. Scanner modules use this before
+-- the row has been normalized.
+function ns.IsGuildScanRow(row, headerPath)
+	if row and ns.SafeNumber(row.factionID, 0) == ns.GUILD_FACTION_ID then
+		return true
+	end
+	return ns.HeaderPathContainsGuildHeader(headerPath)
+end
+
+-- Guild detection for normalized or stored reputation entries. Used by the
+-- normalizer and character store to recognize new entries, legacy entries
+-- under the shared "1168" key, and entries that already carry the guild flag.
+function ns.IsGuildReputation(entry, factionKey)
+	if type(entry) ~= "table" then
+		return false
+	end
+	if entry.isGuildReputation == true then
+		return true
+	end
+	if ns.SafeNumber(entry.factionID, 0) == ns.GUILD_FACTION_ID then
+		return true
+	end
+	if ns.HeaderPathContainsGuildHeader(entry.headerPath) then
+		return true
+	end
+	if ns.IsGuildFactionKey(factionKey or entry.factionKey) then
+		return true
+	end
+	return false
+end
+
 function ns.FormatLastSeen(timestamp)
 	timestamp = ns.SafeNumber(timestamp, 0)
 	if timestamp <= 0 or not date then

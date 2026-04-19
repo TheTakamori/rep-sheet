@@ -123,6 +123,28 @@ ns.REP_TYPE = {
 ns.NEIGHBORHOOD_INITIATIVE_NAME = "Neighborhood Initiative"
 ns.NEIGHBORHOOD_INITIATIVE_EXPANSION_KEY = "midnight"
 
+-- Section header that the Reputation panel uses to group the player's current
+-- guild reputation. Because each character can only be in one guild at a time,
+-- guild rows under this header receive special handling: stale guild reps for a
+-- character are dropped on full scans so a character only ever shows the guild
+-- they are currently in. Guild detection helpers that depend on this constant
+-- live in Core/ReputationUtils.lua.
+ns.GUILD_HEADER_NAME = "Guild"
+
+-- Every guild reputation in WoW is exposed by the API under a single shared
+-- factionID (1168). The displayed name changes based on the player's current
+-- guild, but the ID does not. Because of that, keying stored reputations by
+-- factionID alone causes every character's guild rep to collide into one
+-- bucket. Guild rows are re-keyed in Core/ReputationUtils.lua using this prefix
+-- plus the guild name so each unique guild becomes its own faction bucket.
+ns.GUILD_FACTION_ID = 1168
+ns.GUILD_FACTION_KEY_PREFIX = "guild:"
+
+ns.SCAN_KIND = {
+	FULL = "full",
+	TARGETED = "targeted",
+}
+
 ns.EVENT = {
 	ADDON_LOADED = "ADDON_LOADED",
 	PLAYER_LOGIN = "PLAYER_LOGIN",

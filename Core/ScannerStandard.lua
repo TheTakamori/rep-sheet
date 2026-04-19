@@ -2,17 +2,49 @@ RepSheet = RepSheet or {}
 local ns = RepSheet
 local helpers = ns.ScannerStandardHelpers
 
+local function resolveCurrentGuildName()
+	if type(GetGuildInfo) ~= "function" then
+		return ""
+	end
+	local ok, guildName = pcall(GetGuildInfo, "player")
+	if not ok then
+		return ""
+	end
+	return ns.NormalizeText(guildName)
+end
+
 local function buildStandardScanRow(row, headerPath, expansionHint)
+	local isGuild = ns.IsGuildScanRow(row, headerPath)
+	local rowName = row.name
+	if isGuild then
+		local currentGuildName = resolveCurrentGuildName()
+		if currentGuildName ~= "" then
+			-- The Reputation panel sometimes returns a generic localized label
+			-- ("Guild") for the player's current guild row. Use the actual
+			-- guild name from GetGuildInfo so each guild becomes its own bucket.
+			rowName = currentGuildName
+		end
+	end
+	local factionKey
+	if isGuild then
+		factionKey = ns.MakeGuildFactionKey(rowName)
+		if factionKey == "" then
+			factionKey = row.factionID and tostring(row.factionID) or ns.NormalizeSearchText(rowName)
+		end
+	else
+		factionKey = row.factionID and tostring(row.factionID) or ns.NormalizeSearchText(rowName)
+	end
+
 	local scanRow = {
-		factionKey = row.factionID and tostring(row.factionID) or ns.NormalizeSearchText(row.name),
+		factionKey = factionKey,
 		factionID = row.factionID,
-		name = row.name,
+		name = rowName,
 		description = row.description,
 		standingId = row.standingId,
 		currentStanding = ns.SafeNumber(row.currentStanding, 0),
 		bottomValue = ns.SafeNumber(row.currentReactionThreshold, 0),
 		topValue = ns.SafeNumber(row.nextReactionThreshold, 0),
-		isAccountWide = row.isAccountWide == true,
+		isAccountWide = row.isAccountWide == true and not isGuild,
 		isWatched = row.isWatched == true,
 		atWar = row.atWar == true,
 		canToggleAtWar = row.canToggleAtWar == true,
@@ -20,6 +52,7 @@ local function buildStandardScanRow(row, headerPath, expansionHint)
 		headerPath = headerPath,
 		expansionID = row.expansionID,
 		majorFactionID = row.majorFactionID or row.renownFactionID,
+		isGuildReputation = isGuild,
 	}
 	if ns.SafeString(expansionHint) ~= "" then
 		scanRow.expansionKey = expansionHint
@@ -113,6 +146,44 @@ local function appendFallbackStandardRows(rows)
 	))
 end
 
+local function ensureCurrentGuildScanRow(rows)
+	-- Every guild rep in WoW shares factionID 1168, but the Reputation panel
+	-- enumeration sometimes omits the Classic / Guild section entirely (e.g.
+	-- when the panel is filtered to a single expansion). Without this helper,
+	-- a full scan for a guilded character could miss their guild rep, leaving
+	-- a stale entry from a previous guild in storage forever. We always ask
+	-- the API directly for faction 1168 and inject a synthetic guild row when
+	-- the player is currently in a guild.
+	local guildName = resolveCurrentGuildName()
+	if guildName == "" then
+		return
+	end
+
+	local guildKey = ns.MakeGuildFactionKey(guildName)
+	if guildKey == "" then
+		return
+	end
+
+	for index = 1, #rows do
+		local existing = rows[index]
+		if existing and (existing.factionKey == guildKey or (existing.isGuildReputation == true)) then
+			return
+		end
+	end
+
+	local guildRow = helpers.getFactionDataByFactionID(ns.GUILD_FACTION_ID)
+	if not guildRow or guildRow.isHeader or guildRow.hasRep == false then
+		return
+	end
+
+	guildRow.name = guildName
+
+	local headerPath = { ns.GUILD_HEADER_NAME }
+	local scanRow = buildStandardScanRow(guildRow, headerPath)
+	rows[#rows + 1] = scanRow
+	traceStandardScanRow("STD guild row", scanRow)
+end
+
 function ns.ScanStandardReputations()
 	local collapsedHeaders = helpers.expandAllHeaders()
 	local rows = {}
@@ -164,6 +235,7 @@ function ns.ScanStandardReputations()
 		end
 	end
 
+	ensureCurrentGuildScanRow(rows)
 	appendFallbackStandardRows(rows)
 	helpers.restoreCollapsedHeaders(collapsedHeaders)
 

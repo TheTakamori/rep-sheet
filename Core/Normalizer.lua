@@ -2,8 +2,8 @@ RepSheet = RepSheet or {}
 local ns = RepSheet
 local helpers = ns.NormalizerHelpers
 
-function ns.NormalizeCurrentCharacterSnapshot(reason, scanRows, specialMap)
-	local snapshot = ns.BuildCurrentCharacterSnapshotBase(reason)
+function ns.NormalizeCurrentCharacterSnapshot(reason, scanRows, specialMap, scanKind)
+	local snapshot = ns.BuildCurrentCharacterSnapshotBase(reason, scanKind)
 	specialMap = specialMap or {}
 
 	for index = 1, #(scanRows or {}) do

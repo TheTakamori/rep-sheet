@@ -10,6 +10,23 @@ local function buildFactionKey(factionID, name)
 	return ns.NormalizeSearchText(name)
 end
 
+local function chooseStoredFactionKey(factionID, name, isGuild, fallbackKey)
+	if isGuild then
+		local guildKey = ns.MakeGuildFactionKey(name)
+		if guildKey ~= "" then
+			return guildKey
+		end
+	end
+	-- Always prefer a key derived from factionID + name so that ApplyRuntime
+	-- and Backfill paths stay deterministic. Only fall back to a stored key
+	-- when there is genuinely no factionID and no usable name.
+	local derived = buildFactionKey(factionID, name)
+	if derived ~= "" then
+		return derived
+	end
+	return ns.SafeString(fallbackKey)
+end
+
 local function normalizeHeaderPath(headerPath)
 	if type(headerPath) ~= "table" then
 		return {}
@@ -327,8 +344,9 @@ function helpers.ApplyRuntimeReputationFields(entry)
 	local normalizedDescription = ns.NormalizeText(entry.description)
 	local normalizedHeaderPath = normalizeHeaderPath(entry.headerPath)
 	local expansionKey = ns.SafeString(entry.expansionKey, ns.ALL_EXPANSIONS_KEY)
+	local entryIsGuild = ns.IsGuildReputation(entry, entry.factionKey)
 	local row = {
-		factionKey = buildFactionKey(entry.factionID, normalizedName),
+		factionKey = chooseStoredFactionKey(entry.factionID, normalizedName, entryIsGuild, entry.factionKey),
 		factionID = entry.factionID,
 		name = normalizedName,
 		description = normalizedDescription,
@@ -339,7 +357,7 @@ function helpers.ApplyRuntimeReputationFields(entry)
 		currentStanding = entry.currentStanding,
 		bottomValue = entry.bottomValue,
 		topValue = entry.topValue,
-		isAccountWide = entry.isAccountWide == true,
+		isAccountWide = entry.isAccountWide == true and not entryIsGuild,
 		isWatched = entry.isWatched == true,
 		isChild = entry.isChild == true,
 		headerPath = normalizedHeaderPath,
@@ -350,7 +368,7 @@ function helpers.ApplyRuntimeReputationFields(entry)
 	local special = {
 		repType = entry.repType,
 		majorFactionID = ns.SafeNumber(entry.majorFactionID, 0),
-		isAccountWide = entry.isAccountWide == true,
+		isAccountWide = entry.isAccountWide == true and not entryIsGuild,
 		hasParagon = entry.hasParagon == true,
 		paragonValue = ns.SafeNumber(entry.paragonValue, 0),
 		paragonThreshold = ns.SafeNumber(entry.paragonThreshold, 0),
@@ -370,6 +388,10 @@ function helpers.ApplyRuntimeReputationFields(entry)
 	entry.factionKey = row.factionKey
 	entry.name = normalizedName
 	entry.description = normalizedDescription
+	entry.isGuildReputation = entryIsGuild
+	if entryIsGuild then
+		entry.isAccountWide = false
+	end
 	entry.repType = repType
 	entry.expansionKey = expansionKey
 	entry.expansionName = ns.ExpansionLabelForKey(expansionKey)
@@ -396,10 +418,48 @@ function helpers.ApplyRuntimeReputationFields(entry)
 	))
 end
 
+local function rekeyLegacyGuildReputations(character)
+	if type(character) ~= "table" or type(character.reputations) ~= "table" then
+		return
+	end
+
+	local reputations = character.reputations
+	local migrated = {}
+	for factionKey, reputation in pairs(reputations) do
+		if type(reputation) == "table" and ns.IsGuildReputation(reputation, factionKey) then
+			local normalizedName = ns.NormalizeText(reputation.name)
+			local newKey = ns.MakeGuildFactionKey(normalizedName)
+			if newKey ~= "" and newKey ~= factionKey then
+				migrated[#migrated + 1] = { oldKey = factionKey, newKey = newKey, reputation = reputation }
+			elseif newKey == "" then
+				-- Cannot derive a guild key without a name, drop the legacy
+				-- entry to avoid the cross-character collision under "1168".
+				migrated[#migrated + 1] = { oldKey = factionKey, newKey = nil, reputation = reputation }
+			else
+				reputation.factionKey = newKey
+				reputation.isGuildReputation = true
+				reputation.isAccountWide = false
+			end
+		end
+	end
+
+	for index = 1, #migrated do
+		local move = migrated[index]
+		reputations[move.oldKey] = nil
+		if move.newKey then
+			move.reputation.factionKey = move.newKey
+			move.reputation.isGuildReputation = true
+			move.reputation.isAccountWide = false
+			reputations[move.newKey] = move.reputation
+		end
+	end
+end
+
 function ns.BackfillStoredCharacterReputations(character)
 	if type(character) ~= "table" or type(character.reputations) ~= "table" then
 		return
 	end
+	rekeyLegacyGuildReputations(character)
 	for factionKey, reputation in pairs(character.reputations) do
 		if type(reputation) == "table" then
 			if ns.SafeString(reputation.factionKey) == "" then
@@ -421,7 +481,8 @@ function helpers.normalizeFactionRow(row, special)
 
 	local normalizedDescription = ns.NormalizeText(row.description)
 	local normalizedHeaderPath = normalizeHeaderPath(row.headerPath)
-	local factionKey = buildFactionKey(row.factionID, normalizedName)
+	local isGuild = ns.IsGuildReputation(row, row.factionKey)
+	local factionKey = chooseStoredFactionKey(row.factionID, normalizedName, isGuild, row.factionKey)
 	if factionKey == "" then
 		return nil
 	end
@@ -455,7 +516,11 @@ function helpers.normalizeFactionRow(row, special)
 		overallFraction = overallFraction,
 		remainingFraction = remainingFraction,
 		isMaxed = isMaxed,
-		isAccountWide = special.isAccountWide == true or row.isAccountWide == true,
+		-- Guild reputation is intrinsically per-character (each character can
+		-- only belong to one guild), so never honor the API's account-wide /
+		-- warband flag for guild rows. Otherwise the index would collapse
+		-- multiple alts into a single representative entry.
+		isAccountWide = (special.isAccountWide == true or row.isAccountWide == true) and not isGuild,
 		isChild = row.isChild == true,
 		isWatched = row.isWatched == true,
 		headerPath = normalizedHeaderPath,
@@ -473,6 +538,7 @@ function helpers.normalizeFactionRow(row, special)
 		friendCurrentRank = ns.SafeNumber(special.friendCurrentRank, 0),
 		friendMaxRank = ns.SafeNumber(special.friendMaxRank, 0),
 		friendTextLevel = ns.NormalizeText(special.friendTextLevel),
+		isGuildReputation = isGuild,
 		sortName = ns.NormalizeSearchText(normalizedName),
 		searchText = ns.NormalizeSearchText(string.format(
 			"%s %s %s %s",

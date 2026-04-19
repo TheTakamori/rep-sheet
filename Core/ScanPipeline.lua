@@ -2,11 +2,11 @@ RepSheet = RepSheet or {}
 local ns = RepSheet
 local standardHelpers = ns.ScannerStandardHelpers
 
-local function saveCurrentCharacterSnapshot(reason, scanRows, specialMap)
+local function saveCurrentCharacterSnapshot(reason, scanRows, specialMap, scanKind)
 	if specialMap == nil then
 		specialMap = ns.ScanSpecialReputationData(scanRows)
 	end
-	local snapshot = ns.NormalizeCurrentCharacterSnapshot(reason, scanRows, specialMap)
+	local snapshot = ns.NormalizeCurrentCharacterSnapshot(reason, scanRows, specialMap, scanKind)
 	ns.SaveCharacterSnapshot(snapshot)
 	ns.DebugLog(string.format(ns.FORMAT.SAVED_REPUTATIONS, snapshot.reputationCount or 0, ns.FormatCharacterName(snapshot)))
 	return snapshot
@@ -214,7 +214,7 @@ function ns.StartAsyncKnownReputationRefresh(reason, scanToken, onComplete)
 			ns.LogSpecialReputationSummary(job.specialSummary)
 		end
 
-		local savedOk, snapshot = pcall(saveCurrentCharacterSnapshot, reason, job.rows, job.specialMap)
+		local savedOk, snapshot = pcall(saveCurrentCharacterSnapshot, reason, job.rows, job.specialMap, ns.SCAN_KIND.TARGETED)
 		complete(savedOk, snapshot)
 	end
 
@@ -267,7 +267,7 @@ function ns.ScanCurrentCharacter(reason)
 	local standardRows, scanContext = ns.ScanStandardReputations()
 	local majorRows = ns.ScanMajorReputations(standardRows, scanContext)
 	local scanRows = ns.MergeScannedReputationRows(standardRows, majorRows)
-	return saveCurrentCharacterSnapshot(reason, scanRows)
+	return saveCurrentCharacterSnapshot(reason, scanRows, nil, ns.SCAN_KIND.FULL)
 end
 
 function ns.RefreshCurrentCharacterKnownReputations(reason)
@@ -284,7 +284,7 @@ function ns.RefreshCurrentCharacterKnownReputations(reason)
 		return ns.ScanCurrentCharacter(reason)
 	end
 
-	return saveCurrentCharacterSnapshot(reason, scanRows)
+	return saveCurrentCharacterSnapshot(reason, scanRows, nil, ns.SCAN_KIND.TARGETED)
 end
 
 function ns.RefreshCurrentCharacterByFactionIDs(reason, factionIDs)
@@ -304,5 +304,5 @@ function ns.RefreshCurrentCharacterByFactionIDs(reason, factionIDs)
 		return ns.ScanCurrentCharacter(reason)
 	end
 
-	return saveCurrentCharacterSnapshot(reason, scanRows)
+	return saveCurrentCharacterSnapshot(reason, scanRows, nil, ns.SCAN_KIND.TARGETED)
 end

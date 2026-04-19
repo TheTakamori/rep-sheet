@@ -294,6 +294,174 @@ return function(runner, root)
 		A.equal(ns.PlayerStateEnsure().lastStandardScanCount, 2)
 	end)
 
+	runner:test("ScanStandardReputations flags rows beneath the Guild header as guild reputations", function()
+		local ctx = support.new_context(root, { files = SCANNER_FILES })
+		local ns = ctx.ns
+		local helpers = ns.ScannerStandardHelpers
+		local rows_by_index = {
+			[1] = { name = "Guild", isHeader = true },
+			[2] = {
+				factionID = 1168,
+				name = "Twilight Sparkle",
+				standingId = 5,
+				currentStanding = 1500,
+				currentReactionThreshold = 0,
+				nextReactionThreshold = 3000,
+			},
+			[3] = { name = "Classic / Vanilla", isHeader = true },
+			[4] = {
+				factionID = 47,
+				name = "Ironforge",
+				standingId = 6,
+				currentStanding = 4500,
+				currentReactionThreshold = 3000,
+				nextReactionThreshold = 9000,
+			},
+		}
+
+		helpers.expandAllHeaders = function()
+			return {}
+		end
+		helpers.restoreCollapsedHeaders = function()
+		end
+		helpers.getNumFactions = function()
+			return 4
+		end
+		helpers.getFactionDataByIndex = function(index)
+			return rows_by_index[index]
+		end
+		helpers.getKnownStandardFactionMetadata = function()
+			return {}, {}, { currentCharacter = 0, accountWideOther = 0 }
+		end
+
+		local rows = ns.ScanStandardReputations()
+		A.equal(#rows, 2)
+		A.equal(rows[1].name, "Twilight Sparkle")
+		A.same(rows[1].headerPath, { "Guild" })
+		A.truthy(rows[1].isGuildReputation, "Twilight Sparkle should be tagged as a guild reputation")
+		A.equal(rows[1].factionKey, "guild:twilight sparkle", "Guild rows must use guild-name keys, not the shared factionID 1168")
+		A.falsy(rows[1].isAccountWide, "Guild rows must be per-character, not account-wide")
+		A.equal(rows[2].name, "Ironforge")
+		A.equal(rows[2].factionKey, "47")
+		A.falsy(rows[2].isGuildReputation, "Non-guild rows should not be tagged as guild reputations")
+	end)
+
+	runner:test("ScanStandardReputations also detects guild reps by factionID 1168 even when nested under an expansion", function()
+		local ctx = support.new_context(root, { files = SCANNER_FILES })
+		local ns = ctx.ns
+		local helpers = ns.ScannerStandardHelpers
+		local rows_by_index = {
+			[1] = { name = "Classic", isHeader = true },
+			[2] = { name = "Guild", isHeader = true, isChild = true },
+			[3] = {
+				factionID = 1168,
+				name = "Stray Cats",
+				standingId = 5,
+				currentStanding = 1500,
+				currentReactionThreshold = 0,
+				nextReactionThreshold = 3000,
+				isAccountWide = true,
+				isChild = true,
+			},
+		}
+
+		helpers.expandAllHeaders = function()
+			return {}
+		end
+		helpers.restoreCollapsedHeaders = function() end
+		helpers.getNumFactions = function()
+			return 3
+		end
+		helpers.getFactionDataByIndex = function(index)
+			return rows_by_index[index]
+		end
+		helpers.getKnownStandardFactionMetadata = function()
+			return {}, {}, { currentCharacter = 0, accountWideOther = 0 }
+		end
+
+		local rows = ns.ScanStandardReputations()
+		A.equal(#rows, 1)
+		A.truthy(rows[1].isGuildReputation, "Rows with factionID 1168 must be tagged as guild reputations even when nested")
+		A.equal(rows[1].factionKey, "guild:stray cats")
+		A.falsy(rows[1].isAccountWide, "Guild rows must override the API's account-wide flag")
+	end)
+
+	runner:test("ScanStandardReputations injects the player's current guild even when the panel omits it", function()
+		local ctx = support.new_context(root, { files = SCANNER_FILES })
+		local ns = ctx.ns
+		local helpers = ns.ScannerStandardHelpers
+
+		ctx.env.GetGuildInfo = function(unit)
+			A.equal(unit, "player")
+			return "Twilight Sparkle"
+		end
+
+		helpers.expandAllHeaders = function()
+			return {}
+		end
+		helpers.restoreCollapsedHeaders = function() end
+		helpers.getNumFactions = function()
+			return 0
+		end
+		helpers.getFactionDataByIndex = function()
+			return nil
+		end
+		helpers.getKnownStandardFactionMetadata = function()
+			return {}, {}, { currentCharacter = 0, accountWideOther = 0 }
+		end
+		helpers.getFactionDataByFactionID = function(faction_id)
+			A.equal(faction_id, ns.GUILD_FACTION_ID)
+			return {
+				factionID = ns.GUILD_FACTION_ID,
+				name = "Guild",
+				standingId = 6,
+				currentStanding = 8500,
+				currentReactionThreshold = 6000,
+				nextReactionThreshold = 12000,
+				hasRep = true,
+			}
+		end
+
+		local rows = ns.ScanStandardReputations()
+		A.equal(#rows, 1)
+		A.equal(rows[1].name, "Twilight Sparkle", "Injected row must use the actual guild name from GetGuildInfo")
+		A.equal(rows[1].factionKey, "guild:twilight sparkle")
+		A.truthy(rows[1].isGuildReputation)
+		A.same(rows[1].headerPath, { "Guild" })
+	end)
+
+	runner:test("ScanStandardReputations does not inject a guild row when the player is not in a guild", function()
+		local ctx = support.new_context(root, { files = SCANNER_FILES })
+		local ns = ctx.ns
+		local helpers = ns.ScannerStandardHelpers
+		local guild_data_calls = 0
+
+		ctx.env.GetGuildInfo = function()
+			return nil
+		end
+		helpers.expandAllHeaders = function()
+			return {}
+		end
+		helpers.restoreCollapsedHeaders = function() end
+		helpers.getNumFactions = function()
+			return 0
+		end
+		helpers.getFactionDataByIndex = function()
+			return nil
+		end
+		helpers.getKnownStandardFactionMetadata = function()
+			return {}, {}, { currentCharacter = 0, accountWideOther = 0 }
+		end
+		helpers.getFactionDataByFactionID = function()
+			guild_data_calls = guild_data_calls + 1
+			return nil
+		end
+
+		local rows = ns.ScanStandardReputations()
+		A.equal(#rows, 0)
+		A.equal(guild_data_calls, 0, "Should not consult faction data when GetGuildInfo returns nothing")
+	end)
+
 	runner:test("ScanStandardReputations keeps sibling child headers from chaining into each other", function()
 		local ctx = support.new_context(root, { files = SCANNER_FILES })
 		local ns = ctx.ns

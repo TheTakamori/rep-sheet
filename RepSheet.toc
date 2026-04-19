@@ -2,7 +2,7 @@
 ## Title: Rep Sheet
 ## Notes: Browse reputation progress across your alts with /reps.
 ## Author: Takamori
-## Version: 2.3.0
+## Version: 2.3.1
 ## IconTexture: Interface\AddOns\RepSheet\Media\Icons\RepSheetAddonIcon
 ## SavedVariables: RepSheetDB
 

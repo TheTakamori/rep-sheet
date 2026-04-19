@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.3.1
+
+- Fixed guild reputations sometimes lingering on characters that had left or
+  switched guilds. Each character now only shows the guild they are currently
+  in.
+- Picking a guild from the faction list now shows only the characters who are
+  currently in that guild, instead of mixing in characters from past guilds.
+- Guild reputations are tracked per character, so each character's guild
+  progress stays separate from your other characters.
+- The current character's guild is now recorded reliably on every full scan,
+  including when the in-game Reputation panel does not show the Guild section.
+- Older saved guild data from previous versions is cleaned up automatically
+  the next time the addon loads, with no action required.
+
 ## 2.3.0
 
 - Added an `Alts` tab to the left pane that lists every scanned character with
