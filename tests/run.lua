@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global, redundant-parameter
 local source = debug.getinfo(1, "S").source
 local script_path = source:sub(1, 1) == "@" and source:sub(2) or source
 local script_dir = script_path:match("^(.*)/[^/]+$") or "."

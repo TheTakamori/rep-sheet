@@ -123,7 +123,10 @@ function ns.UI_CreateForgetAltDialog(parent)
 	)
 
 	dialog.forgetBtn:SetScript("OnClick", function()
-		local ok, reason = ns.DeleteCharacterSnapshot and ns.DeleteCharacterSnapshot(dialog.selectedCharacterKey)
+		local ok, reason
+		if ns.DeleteCharacterSnapshot then
+			ok, reason = ns.DeleteCharacterSnapshot(dialog.selectedCharacterKey)
+		end
 		if ok then
 			dialog:Hide()
 			if ns.RefreshMainFrame then

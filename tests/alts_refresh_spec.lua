@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global, undefined-field
 local support = require("support")
 local A = support.assert
 

@@ -367,7 +367,7 @@ function helpers.UpdateProgressBar(statusBar, source, baseFraction)
 	end
 
 	helpers.SetProgressBarTooltipData(statusBar, source, overallFraction)
-	helpers.UpdateBandOverlay(statusBar, source, overallFraction)
+	helpers.UpdateBandOverlay(statusBar, source)
 	helpers.UpdateParagonOverlay(statusBar, source)
 	helpers.UpdateOverallOverlay(statusBar, source, overallFraction)
 end

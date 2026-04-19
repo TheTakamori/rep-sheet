@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 local support = require("support")
 local A = support.assert
 local UI_TEST_FILES = support.with_files({

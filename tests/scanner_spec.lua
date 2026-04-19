@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global, undefined-field, need-check-nil, duplicate-set-field
 local support = require("support")
 local A = support.assert
 

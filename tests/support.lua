@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 local support = {}
 
 local DEFAULT_FILES = {
