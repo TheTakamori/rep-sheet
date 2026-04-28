@@ -181,6 +181,14 @@ function ns.GetAltReputationEntries(characterKey)
 		return {}
 	end
 
+	local runtime = ns.RuntimeEnsure()
+	runtime.altRepEntriesByCharacter = type(runtime.altRepEntriesByCharacter) == "table"
+		and runtime.altRepEntriesByCharacter
+		or {}
+	if runtime.altRepEntriesByCharacter[characterKey] then
+		return runtime.altRepEntriesByCharacter[characterKey]
+	end
+
 	local index = ns.BuildFactionIndex()
 	local entries = {}
 	for bucketIndex = 1, #index.all do
@@ -192,5 +200,6 @@ function ns.GetAltReputationEntries(characterKey)
 	end
 
 	table.sort(entries, compareReputationEntries)
+	runtime.altRepEntriesByCharacter[characterKey] = entries
 	return entries
 end

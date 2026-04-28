@@ -153,6 +153,60 @@ return function(runner, root)
 		A.equal(#ns.GetAltReputationEntries(""), 0)
 	end)
 
+	runner:test("GetAltReputationEntries caches entries until the index is marked dirty", function()
+		local ctx = support.new_context(root, { files = ALTS_FILES })
+		local ns = ctx.ns
+		ns.InitDB()
+		seed_three_alts(ns)
+
+		local first = ns.GetAltReputationEntries("Alpha::Alyssa")
+		local second = ns.GetAltReputationEntries("Alpha::Alyssa")
+		A.equal(second, first)
+
+		ns.SaveCharacterSnapshot(support.make_snapshot(ns, {
+			characterKey = "Alpha::Alyssa",
+			name = "Alyssa",
+			realm = "Alpha",
+			level = 90,
+			className = "Mage",
+			classFile = "MAGE",
+			raceName = "Human",
+			raceFile = "Human",
+			factionName = "Alliance",
+			lastScanAt = 400,
+			reputations = {
+				["100"] = support.make_reputation(ns, {
+					factionID = 100,
+					name = "Booty Bay",
+					expansionKey = "classic",
+					standingId = 6,
+					currentValue = 3000,
+					maxValue = 6000,
+				}),
+				["200"] = support.make_reputation(ns, {
+					factionID = 200,
+					name = "Everlook",
+					expansionKey = "classic",
+					standingId = 5,
+					currentValue = 1500,
+					maxValue = 3000,
+				}),
+				["300"] = support.make_reputation(ns, {
+					factionID = 300,
+					name = "Argent Crusade",
+					expansionKey = "wrath",
+					standingId = 4,
+					currentValue = 0,
+					maxValue = 3000,
+				}),
+			},
+		}))
+
+		local afterDirty = ns.GetAltReputationEntries("Alpha::Alyssa")
+		A.truthy(afterDirty ~= first)
+		A.equal(#afterDirty, 3)
+	end)
+
 	runner:test("MarkIndexDirty invalidates the cached alts index", function()
 		local ctx = support.new_context(root, { files = ALTS_FILES })
 		local ns = ctx.ns

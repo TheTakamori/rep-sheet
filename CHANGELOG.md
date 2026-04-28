@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.2
+
+- Reduced repeated sorting work when refreshing an alt's reputation detail
+  pane, while still invalidating the cache whenever saved reputation data
+  changes.
+
 ## 2.3.1
 
 - Fixed guild reputations sometimes lingering on characters that had left or

@@ -222,6 +222,7 @@ function ns.MarkIndexDirty()
 	runtime.index = nil
 	runtime.altsIndex = nil
 	runtime.altsIndexDirty = true
+	runtime.altRepEntriesByCharacter = nil
 	ns.InvalidateFilteredResults()
 	ns.InvalidateAltResults()
 	ns.InvalidateAltRepResults()
